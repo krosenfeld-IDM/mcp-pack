@@ -7,18 +7,16 @@ A tool for creating and managing documentation databases from GitHub repositorie
 ```bash
 # Install from source
 pip install -e .
-
-# Or for development
-pip install -e ".[dev]"
 ```
 
 ## Prerequisites
 
-- Qdrant server running (by default at http://localhost:6333)
+- **Qdrant server running** (by default at http://localhost:6333)
 - GitHub token (optional, but recommended to avoid rate limits)
 - OpenAI API key (optional, for summarizing Jupyter notebooks)
 
 ## Usage
+See `example/` folder.
 
 ### Create a documentation database
 
