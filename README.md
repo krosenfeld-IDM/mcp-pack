@@ -51,6 +51,9 @@ You can add the server to you `mcp.json` (or similar) file. See the `examples/` 
 - [cursor](https://docs.cursor.com/context/model-context-protocol) (NB: may not work properly with remote connections)
 - [windsurf](https://docs.windsurf.com/windsurf/mcp)
 
+Note that due to `qdrant`, it can take some time to initialize the server for the first time. Make sure that you use
+absolute filepaths in the `mcp.json`. You may also need to set an absolute path for `uv`.
+
 ## Requirements
 - Docker
 - uv

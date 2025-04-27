@@ -21,7 +21,7 @@ and add to `mcp.json` (or equivalent) after correcting the full path:
         "command": "uv",
         "args": [
             "--directory",
-            "${HOME}/mcp-pack/examples/sciris",
+            "/home/USER/mcp-pack/examples/sciris",
             "run",
             "server.py"
         ]
