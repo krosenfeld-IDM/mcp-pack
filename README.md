@@ -86,3 +86,15 @@ options:
   --openai-api-key OPENAI_API_KEY
                         OpenAI API key
 ```
+
+``` bash
+python -m mcp_pack.clean_db --help
+Clean Qdrant database collections
+
+options:
+  -h, --help            show this help message and exit
+  --qdrant-url QDRANT_URL
+                        Qdrant server URL
+  --collection COLLECTION
+                        Specific collection to delete (optional, if not provided, all collections will be deleted)
+```
