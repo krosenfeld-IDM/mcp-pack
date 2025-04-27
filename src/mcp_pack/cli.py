@@ -58,7 +58,12 @@ def clean_db_command(args):
 
 def main():
     """Main CLI entry point."""
-    load_dotenv()
+
+    dotenv_path = os.path.join(os.getcwd(), '.env')
+    if os.path.exists(dotenv_path):
+        load_dotenv(dotenv_path)
+    else:
+        load_dotenv()
     
     parser = argparse.ArgumentParser(description=f'MCP Pack v{__version__} - Tools for creating and managing documentation databases')
     subparsers = parser.add_subparsers(dest='command', help='Command to execute')
