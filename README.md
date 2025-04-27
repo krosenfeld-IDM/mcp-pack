@@ -2,11 +2,13 @@
 
 A tool for creating and managing documentation databases from GitHub repositories.
 
-## Quickstart
+## Quickstart to create a database
 With a Qdrant server running:
 ```bash
 uvx mcp_pack create_db https://github.com/user/repo
 ```
+
+see the `examples/` folder for how to setup the MCP server.
 
 ## Installation
 
