@@ -46,6 +46,11 @@ python -m mcp_pack.clean_db --qdrant-url http://custom-url:6333
 
 ## Using the server
 
+You can add the server to you `mcp.json` (or similar) file. See the `examples/` for more details. Below is more information for code editors:
+- [VSCode](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
+- [cursor](https://docs.cursor.com/context/model-context-protocol) (NB: may not work properly with remote connections)
+- [windsurf](https://docs.windsurf.com/windsurf/mcp)
+
 ## Requirements
 - Docker
 - uv
