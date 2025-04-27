@@ -1,6 +1,9 @@
 [project]
 name = "mcp-pack"
 version = "0.1.0"
+authors = [
+  { name="Katherine Rosenfeld"},
+]
 description = "Package for accessing package artifacts via MCP"
 readme = "README.md"
 requires-python = ">=3.11"
