@@ -4,6 +4,65 @@ from sentence_transformers import SentenceTransformer
 from typing import Any, Dict, List, Optional
 import os
 
+get_docstring_template = """
+            Retrieves relevant docstrings from {module_name} module functions or classes based on a search query.
+            
+            This tool performs a semantic search against indexed {module_name} documentation to find
+            the most relevant function or class docstrings that match the provided query.
+            
+            Args:
+                query (str): A search query describing the {module_name} functionality you're looking for.
+                    Examples: "How to use basic functions", "Core classes", "Data processing"
+                limit (int, optional): Maximum number of relevant docstrings to return. Defaults to 3.
+            
+            Returns:
+                List[str]: A list of formatted docstrings, each containing:
+                    - The name and type (function/class) of the {module_name} object
+                    - The complete docstring with parameter descriptions and usage notes
+    """
+
+get_source_code_template = """
+            Retrieves relevant source code implementations from {module_name} module based on a search query.
+            
+            This tool performs a semantic search against indexed {module_name} source code to find
+            the most relevant function or class implementations that match the provided query.
+            Use this when you need to understand how specific {module_name} functionality is implemented.
+            
+            Args:
+                query (str): A search query describing the {module_name} functionality you're looking for.
+                    Examples: "Implementation details of", "How specific feature works", "Core logic"
+                limit (int, optional): Maximum number of relevant source code snippets to return. Defaults to 3.
+            
+            Returns:
+                List[str]: A list of formatted source code snippets, each containing:
+                    - The name and type (function/class) of the {module_name} object
+                    - The complete source code implementation
+            """
+
+get_usage_example_template = """
+            Finds the most relevant code example for accomplishing a specific task with {module_name}.
+            
+            This tool searches through a collection of notebook examples to find a relevant
+            code sample that demonstrates how to accomplish a specific task using {module_name}.
+            Use this tool when you need practical examples rather than just documentation.
+            
+            Args:
+                task (str): Description of the task you want to accomplish with {module_name}.
+                    Examples: "Common use cases", "Working with main features", "Typical workflows"
+                include_context (bool, optional): Whether to include surrounding context such as 
+                    imports, setup code, and additional explanations. Setting to False returns
+                    only the core implementation. Defaults to True.
+            
+            Returns:
+                Dict[str, Any]: A dictionary containing:
+                    - 'name': The name of the notebook or example
+                    - 'type': The type of the resource (usually "notebook")
+                    - 'result': The complete code example with explanations
+            
+            Note:
+                The returned examples are from real usage scenarios and may need adaptation
+                for your specific use case.
+            """
 class ModuleQueryServer:
     """
     A configurable server for providing AI agents with module documentation and examples.
@@ -48,24 +107,9 @@ class ModuleQueryServer:
     def register_tools(self):
         """Register all query tools with the MCP server."""
         
-        @self.mcp.tool()
+        @self.mcp.tool(description = get_docstring_template.format(module_name = self.module_name))
         async def get_docstring(query: str, limit: int = 3) -> List[str]:
-            """
-            Retrieves relevant docstrings from {self.module_name} module functions or classes based on a search query.
-            
-            This tool performs a semantic search against indexed {self.module_name} documentation to find
-            the most relevant function or class docstrings that match the provided query.
-            
-            Args:
-                query (str): A search query describing the {self.module_name} functionality you're looking for.
-                    Examples: "How to use basic functions", "Core classes", "Data processing"
-                limit (int, optional): Maximum number of relevant docstrings to return. Defaults to 3.
-            
-            Returns:
-                List[str]: A list of formatted docstrings, each containing:
-                    - The name and type (function/class) of the {self.module_name} object
-                    - The complete docstring with parameter descriptions and usage notes
-            """
+
             client = self.get_qdrant_client()
             
             hits = client.query_points(
@@ -82,25 +126,9 @@ class ModuleQueryServer:
                 
             return result
         
-        @self.mcp.tool()
+        @self.mcp.tool(description = get_source_code_template.format(module_name = self.module_name))
         async def get_source_code(query: str, limit: int = 3) -> List[str]:
-            """
-            Retrieves relevant source code implementations from {self.module_name} module based on a search query.
-            
-            This tool performs a semantic search against indexed {self.module_name} source code to find
-            the most relevant function or class implementations that match the provided query.
-            Use this when you need to understand how specific {self.module_name} functionality is implemented.
-            
-            Args:
-                query (str): A search query describing the {self.module_name} functionality you're looking for.
-                    Examples: "Implementation details of", "How specific feature works", "Core logic"
-                limit (int, optional): Maximum number of relevant source code snippets to return. Defaults to 3.
-            
-            Returns:
-                List[str]: A list of formatted source code snippets, each containing:
-                    - The name and type (function/class) of the {self.module_name} object
-                    - The complete source code implementation
-            """
+
             client = self.get_qdrant_client()
             
             search_result = client.query_points(
@@ -117,32 +145,8 @@ class ModuleQueryServer:
                 
             return result
         
-        @self.mcp.tool()
+        @self.mcp.tool(description = get_usage_example_template.format(module_name = self.module_name))
         async def get_usage_example(task: str, include_context: bool = True) -> Dict[str, Any]:
-            """
-            Finds the most relevant code example for accomplishing a specific task with {self.module_name}.
-            
-            This tool searches through a collection of notebook examples to find a relevant
-            code sample that demonstrates how to accomplish a specific task using {self.module_name}.
-            Use this tool when you need practical examples rather than just documentation.
-            
-            Args:
-                task (str): Description of the task you want to accomplish with {self.module_name}.
-                    Examples: "Common use cases", "Working with main features", "Typical workflows"
-                include_context (bool, optional): Whether to include surrounding context such as 
-                    imports, setup code, and additional explanations. Setting to False returns
-                    only the core implementation. Defaults to True.
-            
-            Returns:
-                Dict[str, Any]: A dictionary containing:
-                    - 'name': The name of the notebook or example
-                    - 'type': The type of the resource (usually "notebook")
-                    - 'result': The complete code example with explanations
-            
-            Note:
-                The returned examples are from real usage scenarios and may need adaptation
-                for your specific use case.
-            """
             client = self.get_qdrant_client()
             
             notebooks = client.query_points(
