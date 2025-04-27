@@ -1,66 +1,80 @@
-# mcp-pack
-Repository for accessing package artifacts via MCP
+# MCP Pack
 
-## Setup
-Install [uv](https://github.com/astral-sh/uv) and run:
+A tool for creating and managing documentation databases from GitHub repositories.
 
-```bash
-uv venv
-source .venv/bin/activate
-uv pip install .
-```
-
-add to a `.env` file a Github personal access token with read access and OpenAI API key (required for processing notebooks):
-
-```
-GITHUB_TOKEN=github_pat_1234567890
-OPENAI_API_KEY=sk-1234567890
-```
-
-## Knowledge base
-`mcp-pack` uses a vector database for semantic search of docstrings.
-
-### Creating the knowledge base
-Navigate to one of the directories in `examples/` and start the qdrant server:
+## Installation
 
 ```bash
-docker run -p 6333:6333 -p 6334:6334 \
-    -v "$(pwd)/qdrant_db:/qdrant/storage:z" \
-    qdrant/qdrant
-```
-and then generate the database, specifying the repository:
-```bash
-python -m mcp_pack.create_db https://github.com/user/repo
+# Install from source
+pip install -e .
 ```
 
-### Cleaning the database
-To clean up the Qdrant database, you can use the clean_db script. This will delete either all collections or a specific collection:
+## Prerequisites
+
+- **Qdrant server running** (by default at http://localhost:6333)
+- GitHub token (optional, but recommended to avoid rate limits)
+- OpenAI API key (optional, for summarizing Jupyter notebooks)
+
+## Usage
+See `example/` folder.
+
+### Create a documentation database
+
+```bash
+# Basic usage
+mcp_pack create_db https://github.com/user/repo
+
+# With @ prefix syntax
+mcp_pack create_db @https://github.com/user/repo
+
+# With additional options
+mcp_pack create_db @https://github.com/user/repo \
+    --output-dir ./output \
+    --verbose \
+    --include-notebooks \
+    --include-rst \
+    --github-token YOUR_GITHUB_TOKEN \
+    --openai-api_key YOUR_OPENAI_API_KEY
+```
+
+### Clean the database
 
 ```bash
 # Delete all collections
-python -m mcp_pack.clean_db
+mcp_pack clean_db
 
 # Delete a specific collection
-python -m mcp_pack.clean_db --collection collection_name
-
-# Use a different Qdrant server URL
-python -m mcp_pack.clean_db --qdrant-url http://custom-url:6333
+mcp_pack clean_db --collection repo-name
 ```
 
-## Using the server
+## Environment Variables
 
-Once you have a database created and the `qdrant` docker running, you can add the server to you `mcp.json` (or similar) file. See the `examples/` for more details. Below is more information for code editors:
-- [VSCode](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
-- [cursor](https://docs.cursor.com/context/model-context-protocol) (NB: may not work properly with remote connections)
-- [windsurf](https://docs.windsurf.com/windsurf/mcp)
+You can set environment variables instead of passing command-line arguments:
 
-Note that due to `qdrant`, it can take some time to initialize the server for the first time. Make sure that you use
-absolute filepaths in the `mcp.json`. You may also need to set an absolute path for `uv`.
+```bash
+# Create a .env file
+GITHUB_TOKEN=your_github_token
+OPENAI_API_KEY=your_openai_api_key
+```
 
-## Requirements
-- Docker
-- uv
+## Options
 
+### create_db
+
+- `repo_url`: GitHub repository URL (can be prefixed with @)
+- `--output-dir`, `-o`: Directory to save JSONL output
+- `--verbose`, `-v`: Verbose output
+- `--include-notebooks`: Include Jupyter notebooks
+- `--include-rst`: Include RST files
+- `--db-path`: Path to store the database
+- `--qdrant-url`: Qdrant server URL (default: http://localhost:6333)
+- `--github-token`: GitHub personal access token
+- `--openai-api-key`: OpenAI API key
+
+### clean_db
+
+- `--qdrant-url`: Qdrant server URL (default: http://localhost:6333)
+- `--collection`: Specific collection to delete (optional)
 
 ## Additional info
 

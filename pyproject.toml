@@ -1,7 +1,10 @@
 [project]
 name = "mcp-pack"
 version = "0.1.0"
-description = "Add your description here"
+authors = [
+  { name="Katherine Rosenfeld"},
+]
+description = "Package for accessing package artifacts via MCP"
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
@@ -18,3 +21,43 @@ dependencies = [
 [build-system]
 requires = ["hatchling>=1.11.0"]
 build-backend = "hatchling.build"
+
+[project.scripts]
+mcp_pack = "mcp_pack.cli:main"
+
+[tool.bumpversion]
+current_version = "0.1.0"
+parse = "(?P<major>\\d+)\\.(?P<minor>\\d+)\\.(?P<patch>\\d+)"
+serialize = ["{major}.{minor}.{patch}"]
+search = "{current_version}"
+replace = "{new_version}"
+regex = false
+ignore_missing_version = false
+ignore_missing_files = false
+tag = true
+sign_tags = false
+tag_name = "v{new_version}"
+tag_message = "Bump version: {current_version} → {new_version}"
+allow_dirty = false
+commit = true
+message = "Bump version: {current_version} → {new_version}"
+commit_args = ""
+setup_hooks = []
+pre_commit_hooks = []
+post_commit_hooks = []
+
+[[tool.bumpversion.files]]
+filename = "pyproject.toml"
+search = 'version = "{current_version}"'
+replace = 'version = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = "src/comps_sif_constructor/version.py"
+search = '__version__ = "{current_version}"'
+replace = '__version__ = "{new_version}"'
+
+[[tool.bumpversion.files]]
+filename = 'src/comps_sif_constructor/version.py'
+search = "__versiondate__ = '\\d{{4}}-\\d{{2}}-\\d{{2}}'"
+replace = "__versiondate__ = '{now:%Y-%m-%d}'"
+regex = true
