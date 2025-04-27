@@ -22,6 +22,8 @@ dependencies = [
 requires = ["hatchling>=1.11.0"]
 build-backend = "hatchling.build"
 
+[project.scripts]
+mcp_pack = "mcp_pack.cli:main"
 
 [tool.bumpversion]
 current_version = "0.1.0"
