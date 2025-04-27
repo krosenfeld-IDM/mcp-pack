@@ -17,7 +17,10 @@ GITHUB_TOKEN=github_pat_1234567890
 OPENAI_API_KEY=sk-1234567890
 ```
 
-## Creating the knowledge base
+## Knowledge base
+`mcp-pack` uses a vector database for semantic search of docstrings.
+
+### Creating the knowledge base
 Navigate to one of the directories in `examples/` and start the qdrant server:
 
 ```bash
@@ -30,7 +33,7 @@ and then generate the database, specifying the repository:
 python -m mcp_pack.create_db https://github.com/user/repo
 ```
 
-## Cleaning the database
+### Cleaning the database
 To clean up the Qdrant database, you can use the clean_db script. This will delete either all collections or a specific collection:
 
 ```bash
@@ -46,7 +49,7 @@ python -m mcp_pack.clean_db --qdrant-url http://custom-url:6333
 
 ## Using the server
 
-You can add the server to you `mcp.json` (or similar) file. See the `examples/` for more details. Below is more information for code editors:
+Once you have a database created and the `qdrant` docker running, you can add the server to you `mcp.json` (or similar) file. See the `examples/` for more details. Below is more information for code editors:
 - [VSCode](https://code.visualstudio.com/docs/copilot/chat/mcp-servers)
 - [cursor](https://docs.cursor.com/context/model-context-protocol) (NB: may not work properly with remote connections)
 - [windsurf](https://docs.windsurf.com/windsurf/mcp)
@@ -61,7 +64,8 @@ absolute filepaths in the `mcp.json`. You may also need to set an absolute path 
 
 ## Additional info
 
-```
+```bash
+> python -m mcp_pack.create_db --help 
 Create documentation database for a GitHub repository
 
 positional arguments:
