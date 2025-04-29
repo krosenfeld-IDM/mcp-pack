@@ -55,6 +55,20 @@ mcp_pack clean_db
 mcp_pack clean_db --collection repo-name
 ```
 
+### List Database Collections
+
+To list all collections in the Qdrant database, use the following command:
+
+```bash
+# Use default Qdrant
+mcp_pack list_db
+
+# Use Custom Qdrant server URL 
+mcp_pack list_db --qdrant-url http://localhost:6333
+```
+
+This will display all the collections currently stored in the Qdrant database.
+
 ## Environment Variables
 
 You can set environment variables instead of passing command-line arguments:
