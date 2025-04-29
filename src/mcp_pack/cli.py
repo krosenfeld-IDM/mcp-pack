@@ -4,6 +4,7 @@ import os
 from dotenv import load_dotenv
 from .create_db import GitModuleHelpDB
 from .clean_db import QdrantCleaner
+from .list_db import QdrantLister
 from .version import __version__
 
 def create_db_command(args):
@@ -56,6 +57,18 @@ def clean_db_command(args):
         else:
             print("No collections were deleted (database may be empty)")
 
+def list_db_command(args):
+    """Execute the list_db command."""
+    lister = QdrantLister(qdrant_url=args.qdrant_url)
+    collections = lister.list_collections()
+
+    if collections:
+        print("Collections in Qdrant:")
+        for collection in collections:
+            print(f"- {collection}")
+    else:
+        print("No collections found in Qdrant.")
+
 def main():
     """Main CLI entry point."""
 
@@ -88,15 +101,21 @@ def main():
     clean_parser.add_argument('--qdrant-url', help='Qdrant server URL', default='http://localhost:6333')
     clean_parser.add_argument('--collection', help='Specific collection to delete (optional, if not provided, all collections will be deleted)')
     
+    # List DB command
+    list_parser = subparsers.add_parser('list_db', help='List all collections in the Qdrant database')
+    list_parser.add_argument('--qdrant-url', help='Qdrant server URL', default='http://localhost:6333')
+    
     args = parser.parse_args()
     
     if args.command == 'create_db':
         create_db_command(args)
     elif args.command == 'clean_db':
         clean_db_command(args)
+    elif args.command == 'list_db':
+        list_db_command(args)
     else:
         parser.print_help()
         sys.exit(1)
 
 if __name__ == "__main__":
-    main() 
+    main()
