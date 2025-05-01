@@ -15,7 +15,13 @@ dependencies = [
     "nbconvert>=7.16.6",
     "nbformat>=5.10.4",
     "openai>=1.75.0",
-    "python-dotenv>=1.1.0"        
+    "python-dotenv>=1.1.0",
+    "langchain>=0.3.24",
+    "langchain-mcp-adapters>=0.0.9",
+    "langgraph>=0.4.0",
+    "langchain-openai>=0.3.14",
+    "streamlit>=1.45.0",
+    "grandalf>=0.8",
 ]
 
 [build-system]
