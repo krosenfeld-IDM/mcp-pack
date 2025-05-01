@@ -1,0 +1,20 @@
+{
+    "name": "MCP Dev Container",
+    "image": "python:latest",
+    "forwardPorts": [
+        6333,
+        6334,
+        8501
+    ],
+    "postCreateCommand": "bash .devcontainer/postCreateCommand.sh",
+    "postStartCommand": "docker run -d -p 6333:6333 -p 6334:6334 -v $(pwd)/qdrant_db:/qdrant/storage:z qdrant/qdrant",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "workspaceFolder": "/workspace",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+            }
+        }
+    }
+}
