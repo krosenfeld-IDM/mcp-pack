@@ -2,14 +2,22 @@ import streamlit as st
 import asyncio
 import dotenv
 import json
+import ast
+import logging
 from langgraph.graph import StateGraph, END, add_messages
 from langchain_core.runnables import RunnableLambda
 from langchain_mcp_adapters.client import MultiServerMCPClient
 from langgraph.prebuilt import create_react_agent
 from pathlib import Path
-
+from mcp_pack.list_db import QdrantLister
 from typing_extensions import TypedDict
 from typing import Annotated
+
+logger = logging.getLogger(__name__)
+logging.basicConfig(filename='app.log', encoding='utf-8', level=logging.INFO)
+
+dotenv.load_dotenv()
+qdrant_url = 'http://localhost:6333'  
 
 class State(TypedDict, total=False):
     messages: Annotated[list, add_messages]
@@ -17,8 +25,6 @@ class State(TypedDict, total=False):
     tool_executor: object  # the mcp agent
     result: str | dict     # response from the agent
 
-
-dotenv.load_dotenv()
 
 def save_quarto_tutorial(final_response):
     """
@@ -64,7 +70,7 @@ def clean_tool_content(content):
 # MCP fetch function
 async def fetch_mcp_node(state: State):
     # Print the state for debugging purposes
-    print("State at fetch_mcp:", state)
+    logger.info(f"State at fetch_mcp: {state['input']}")
     current_path = Path(__file__).resolve().parent.parent / "mcp_pack"
     
     # Health check to ensure MCP server is running
@@ -78,46 +84,38 @@ async def fetch_mcp_node(state: State):
                 }
             }
         ) as client:
-            print("[DEBUG] MCP server is up and running.")
-    except Exception as e:
-        print("[ERROR] MCP server is not reachable:", e)
-        raise
-
-    async with MultiServerMCPClient(
-        {
-            "sciris": {
-                "command": "uv",
-                "args": ["run", str(Path(current_path, "server.py"))],
-                "transport": "stdio",
-            }
-        }
-    ) as client:
-        agent = create_react_agent(
+            logger.info("MCP server is up and running.")
+            agent = create_react_agent(
             "gpt-4o",
             client.get_tools()
         )
-    # Return the tool_executor and ensure it is part of the state
-    return {"tool_executor": agent, **state}
-
-# Run the agent with the input
-async def run_agent_node(state: State):
-    # Print the state for debugging purposes
-    print("State at run_mcp:", state)
-    executor = state["tool_executor"]
-    system_message = {"role": "system", "content": "You are a professional tutor specializing in teaching Sciris. Your goal is to create a detailed tutorial for users based on their queries. Assume the topic is always related to Sciris unless specified otherwise."}
-    result = await executor.ainvoke(
-        {"messages": [system_message, {"role": "user", "content": state["input"]}]}
-    )
-    return {"result": result, **state}
+        system_message = {"role": "system", 
+                        "content": "You are a professional tutor specializing in teaching how to run Python code. Your goal is to create a detailed tutorial for users based on their queries. Provide runnable Python code, including setup and data generation, so the user can follow step by step."}
+        try:
+            result = await agent.ainvoke(
+                {"messages": [system_message, {"role": "user", "content": state["input"]}]}, 
+                config={"timeout": 120}  # Set a timeout for the agent invocation
+            )
+        except asyncio.TimeoutError:
+            logger.error("Timeout error while invoking the agent.")
+            result = {"error": "Timeout error while invoking the agent."}  
+    except Exception as e:
+        logger.error("MCP server is not reachable:", e)
+        raise
+    return {"result": result, **state}    
+     
 
 async def display_result(state: State):
      # Ensure response is parsed correctly and is a list of dictionaries
-    if isinstance(state["result"], str):
+    logger.info(f"State at display_result: {state['result']}")
+    if state["result"]:
         try:
-            response = json.loads(state["result"])  # Parse steps if it's a JSON string
+            response = state["result"]['messages'] # Parse steps if it's a JSON string
+            logger.info(f"Total Response: {len(response)}")
             for msg in response:
+                logger.info(f"Message: {msg}")
                 msg_type = getattr(msg, "type", "unknown")
-
+                logger.info(f"Message Type: {msg_type}")
                 if msg_type == "human":
                     st.markdown(f"**🧑 Human:** {msg.content}")
 
@@ -127,7 +125,7 @@ async def display_result(state: State):
                     if msg.content:
                         # Convert the message content to markdown text
                         markdown_content = f"""---
-        title: "Sciris Tutorial"
+        title: "Tutorial"
         author: "AI Tutor"
         date: "April 30, 2025"
         format: html
@@ -148,11 +146,14 @@ async def display_result(state: State):
                 elif msg_type == "tool":
                     st.markdown("**🛠️ Tool Response:**")
                     st.code(clean_tool_content(msg.content), language="python")
-
+                elif msg_type == "system":
+                    st.markdown(f"**🛠️ System Message:** {msg.content}")    
                 else:
                     st.markdown(f"**❓ Unknown Message ({msg_type}):** {msg.content}")
-        except json.JSONDecodeError:
+        except Exception:
             st.error("Failed to parse steps. Invalid JSON format returned.")
+    else:
+        logger.error("Invalid response.")
     return state
     
 
@@ -160,11 +161,9 @@ def build_async_graph():
     builder = StateGraph(State)
     
     builder.add_node("fetch_mcp", RunnableLambda(fetch_mcp_node))
-    builder.add_node("run_mcp", RunnableLambda(run_agent_node))
     builder.add_node("display_result", RunnableLambda(display_result))
     builder.set_entry_point("fetch_mcp")
-    builder.add_edge("fetch_mcp", "run_mcp")
-    builder.add_edge("run_mcp", "display_result")
+    builder.add_edge("fetch_mcp", "display_result")
     builder.add_edge("display_result", END)
     
     # Debugging: Print the graph structure to verify edges
@@ -185,9 +184,26 @@ if __name__ == "__main__":
     graph_image = graph.get_graph().draw_mermaid_png()
     st.sidebar.image(graph_image, caption="MPC Workflow", use_container_width=True)
 
+    try:
+        qdrant_obj = QdrantLister(qdrant_url=qdrant_url)
+        collections = qdrant_obj.list_collections()
+        if collections:
+            selected_lib = st.selectbox(
+                "Select a python library to use for the tutorial:",
+                collections
+            )
+            st.write(f"You selected: {selected_lib}")
+        else:
+            st.warning("No collections found in Qdrant, please check your Qdrant server.")
+    except Exception as e:
+        st.error(f"Error connecting to Qdrant: {e}")
+        logger.error(f"Error connecting to Qdrant: {e}")
+    finally:
+        qdrant_obj.client.close()    
+
     # Create a Streamlit app
-    st.title("Sciris Tutorial Generator")
-    st.write("Ask a question about Sciris, and the AI will generate a tutorial for you.")
+    st.title("Teach yourself! Tutorial Generator")
+    st.write("Ask a question or give a scenario, and the AI will generate a tutorial for you.")
 
     # Text area for user query
     user_input = st.text_area("Ask a question:", height=100)
@@ -196,4 +212,4 @@ if __name__ == "__main__":
     if st.button("Submit") and user_input.strip():
         # Show a waiting symbol while processing
         with st.spinner("Processing your request..."):
-            response = asyncio.run(graph.ainvoke(State(messages=[], input=user_input)))
+            response = asyncio.run(graph.ainvoke(State(messages=[], input=f"Use {selected_lib} tool: {user_input}")))
