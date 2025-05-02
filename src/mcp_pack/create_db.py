@@ -25,7 +25,7 @@ class GitModuleHelpDB:
     and create a searchable database using Qdrant for efficient documentation retrieval.
     """
     
-    def __init__(self, db_path: str = None, qdrant_url: str = 'http://localhost:6333', github_token: str = None, openai_api_key: str = None):
+    def __init__(self, db_path: str = None, qdrant_url: str = 'http://localhost:6333', github_token: str = None, openai_api_key: str = None, model: str = "gpt-4o"):
         """Initialize the GitModuleHelpDB instance.
         
         Args:
@@ -41,6 +41,7 @@ class GitModuleHelpDB:
         self.client = qdrant_client.QdrantClient(qdrant_url)
         self.github_token = github_token
         self.headers = {'Authorization': f'token {github_token}'} if github_token else {}
+        self.model = "gpt-4o" or model
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         if self.openai_api_key:
             openai.api_key = self.openai_api_key
@@ -272,7 +273,7 @@ class GitModuleHelpDB:
                     }
                     docs.append(doc)
                 except Exception as e:
-                    print(f"Error processing notebook {file['name']}: {e}")
+                    print(f"Error processing notebook {notebook['name']}: {e}")
         return docs
 
     def _summarize_notebook(self, py_code: str, fname: str) -> str:
@@ -287,7 +288,7 @@ class GitModuleHelpDB:
         try:
             client = openai.Client()
             response = client.chat.completions.create(
-                model="gpt-4o",
+                model=self.model,
                 messages=[{"role": "system", "content": "You are a helpful assistant."},
                           {"role": "user", "content": prompt}],
                 max_tokens=5_000,
@@ -409,6 +410,7 @@ if __name__ == "__main__":
     parser.add_argument('--qdrant-url', help='Qdrant server URL', default='http://localhost:6333')
     parser.add_argument('--github-token', help='GitHub personal access token', default=None)
     parser.add_argument('--openai-api-key', help='OpenAI API key', default=None)
+    parser.add_argument('--model', help='OpenAI model', default="gpt-4o")
     args = parser.parse_args()
 
     env_github_token = os.environ.get('GITHUB_TOKEN')
