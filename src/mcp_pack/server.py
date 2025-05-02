@@ -156,7 +156,7 @@ class ModuleQueryServer:
                     must=[
                         models.FieldCondition(
                             key="type",
-                            match=models.MatchValue(value="notebook")
+                            match=models.MatchValue(value="doc")
                         )
                     ]
                 ),
