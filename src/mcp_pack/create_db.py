@@ -357,11 +357,11 @@ class GitModuleHelpDB:
             points=[
                 models.PointStruct(
                     id=idx, 
-                    vector=self.encoder.encode(f'{doc["name"]}:\n{doc["docstring_header"]}').tolist(), 
+                    vector=self.encoder.encode(f'{doc["name"]}:\n{doc["docstring"]}').tolist(), 
                     payload=doc
                 )
                 for idx, doc in enumerate(docs)
-                if doc["docstring_header"]  # Skip if docstring_header is empty
+                if len(doc["docstring"]) > 1      # Skip if docstring_header is empty
             ],
         )
         return self.client.get_collections()
