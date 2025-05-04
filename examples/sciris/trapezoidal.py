@@ -1,5 +1,9 @@
+"""
+Can you replace the time functions with functions from sciris that will do the same thing?
+"""
+
 import numpy as np
-import time
+import sciris as sc
 
 def f(x):
     """Function to integrate."""
@@ -33,13 +37,13 @@ if __name__ == "__main__":
     print("-" * 75)
     for n in Ns:
         # time pure‐Python loop
-        t0 = time.perf_counter()
+        t0 = sc.tic()
         res_loop = trap_loop(lambda x: np.sin(x), a, b, n)
-        t_loop = time.perf_counter() - t0
+        t_loop = sc.toc(t0, output=True)
 
         # time NumPy vectorized
-        t0 = time.perf_counter()
+        t0 = sc.tic()
         res_np = trap_numpy(np.sin, a, b, n)
-        t_np = time.perf_counter() - t0
+        t_np = sc.toc(t0, output=True)
 
         print(f"{n:8d} | {res_loop:12.8f} | {t_loop:14.6f} | {res_np:12.8f} | {t_np:15.6f}")
