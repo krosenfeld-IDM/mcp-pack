@@ -23,11 +23,44 @@ fi
 echo $existing_collections
     	
 
-# Start streamlit ob port 8501
+if lsof -i:8001 | grep -q LISTEN; then
+    echo "Sciris mcp is already running on 8001."
+else
+    echo "Starting sciris tool on port 8001..."
+    cd src/mcp_pack
+    uv run python server.py --module_name=sciris --port=8001 --transport=sse > /dev/null 2>&1 &
+fi
+
+if lsof -i:8002 | grep -q LISTEN; then
+    echo "Starsim mcp is already running on 8002."
+else
+    echo "Starting starsim tool on port 8002..."
+    cd src/mcp_pack
+    uv run python server.py --module_name=starsim --port=8002 --transport=sse > /dev/null 2>&1 &
+fi
+
+# Start mcp client FAST API at port 8081
+if lsof -i:8081 | grep -q LISTEN; then
+    echo "mcp client FAST API is already running on port 8081."
+else
+    echo "Starting mcp client FAST API on port 8081..."
+    cd ../../src/mcp_langchain_agent
+    uvicorn app01:app --reload --port 8081 > /dev/null 2>&1 &
+fi
+
+# Start streamlit langgraph at port 8502
+if lsof -i:8502 | grep -q LISTEN; then
+    echo "streamlit langgraph is already running on port 8502."
+else
+    echo "Starting UI on port 8502..."
+    uv run python -m streamlit run ui01.py --server.port=8502  > /dev/null 2>&1 &
+fi
+
+# simple client
+# Start streamlit server at port 8501
 if lsof -i:8501 | grep -q LISTEN; then
     echo "Streamlit app is already running on port 8501."
 else
     echo "Starting Streamlit app on port 8501..."
-    cd src/mcp_langchain_agent
     uv run python -m streamlit run app.py --server.port=8501
 fi

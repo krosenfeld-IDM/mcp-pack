@@ -3,6 +3,7 @@ from qdrant_client import QdrantClient, models
 from sentence_transformers import SentenceTransformer
 from typing import Any, Dict, List, Optional
 import os
+import argparse
 
 get_docstring_template = """
             Retrieves relevant docstrings from {module_name} module functions or classes based on a search query.
@@ -179,16 +180,24 @@ class ModuleQueryServer:
             
             return result
     
-    def run(self, transport: str = "stdio"):
+    def run(self, transport: str = "stdio", port: int = 8000):
         """Start the MCP server with the specified transport."""
-        self.mcp.run(transport=transport)
+        if transport == "stdio":
+            self.mcp.run(transport=transport)
+        elif transport == "sse":
+            self.mcp.run(transport=transport, port=port)
 
 # Example usage
 if __name__ == "__main__":
-    # Get module name from environment or use default
-    module_name = os.environ.get("MODULE_NAME", "sciris")
-    
-    # Create and start the server
-    server = ModuleQueryServer(module_name)
+    parser = argparse.ArgumentParser(description="Run the ModuleQueryServer with a specified transport and module name.")
+    parser.add_argument("--module_name", type=str, default=os.environ.get("MODULE_NAME", "sciris"), help="Name of the module to query.")
+    parser.add_argument("--transport", type=str, default="stdio", help="Transport method for the MCP server (e.g., stdio, http, etc.)")
+    parser.add_argument("--port", type=int, default=8000, help="Port number for the MCP server.")
+    args = parser.parse_args()
+   
+    # Create and start the server with the specified port
+    server = ModuleQueryServer(args.module_name)
     server.register_tools()
-    server.run()
+
+    # Pass the transport and port arguments to the run method
+    server.run(transport=args.transport, port=args.port)
