@@ -3,13 +3,15 @@
 # Check if the Qdrant container is already running
 if ! docker ps --filter "ancestor=qdrant/qdrant" --format "{{.ID}}" | grep -q .; then
     echo "Starting Qdrant container..."
+    fuser -k 6333/tcp
+    fuser -k 6334/tcp
     docker run -d -p 6333:6333 -p 6334:6334 -v $CODESPACE_VSCODE_FOLDER/qdrant_db:/qdrant/storage:z qdrant/qdrant
 else
     echo "Qdrant container is already running."
 fi
 
 sleep 10
-export UV_HTTP_TIMEOUT=120
+export UV_HTTP_TIMEOUT=1200
 
 # Check if "No collections" is returned by mcp_pack list_db
 existing_collections=$(mcp_pack list_db)

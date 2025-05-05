@@ -182,10 +182,9 @@ class ModuleQueryServer:
     
     def run(self, transport: str = "stdio", port: int = 8000):
         """Start the MCP server with the specified transport."""
-        if transport == "stdio":
-            self.mcp.run(transport=transport)
-        elif transport == "sse":
-            self.mcp.run(transport=transport, port=port)
+        if transport == "sse":
+            self.mcp.settings.port = port
+        self.mcp.run(transport=transport)
 
 # Example usage
 if __name__ == "__main__":

@@ -7,7 +7,7 @@ import ast
 from pathlib import Path
 from mcp_pack.list_db import QdrantLister
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='app01.log', encoding='utf-8', level=logging.INFO)
+logging.basicConfig(filename='ui01.log', encoding='utf-8', level=logging.INFO)
 logger.formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger.info("============Starting Streamlit app...===============")
 
