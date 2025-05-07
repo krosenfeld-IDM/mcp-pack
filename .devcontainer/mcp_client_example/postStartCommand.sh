@@ -38,7 +38,6 @@ if lsof -i:8002 | grep -q LISTEN; then
     echo "Starsim mcp is already running on 8002."
 else
     echo "Starting starsim tool on port 8002..."
-    cd src/mcp_pack
     uv run python server.py --module_name=starsim --port=8002 --transport=sse > /dev/null 2>&1 &
 fi
 

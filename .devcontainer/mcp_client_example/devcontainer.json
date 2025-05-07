@@ -7,6 +7,9 @@
     "forwardPorts": [
         6333,
         6334,
+        8001,
+        8002,
+        8081,
         8501
     ],
     "postCreateCommand": "bash ./.devcontainer/mcp_client_example/postCreateCommand.sh",
