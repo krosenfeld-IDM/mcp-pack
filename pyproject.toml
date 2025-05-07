@@ -7,7 +7,9 @@ authors = [
 description = "Package for accessing package artifacts via MCP"
 readme = "README.md"
 requires-python = ">=3.11"
-dependencies = [
+
+[dependency-groups]
+default = [
     "ipykernel>=6.29.5",
     "mcp[cli]>=1.6.0",
     "qdrant-client>=1.13.3",
@@ -16,6 +18,8 @@ dependencies = [
     "nbformat>=5.10.4",
     "openai>=1.75.0",
     "python-dotenv>=1.1.0",
+]
+mcp_client = [
     "langchain>=0.3.24",
     "langchain-mcp-adapters>=0.0.9",
     "langgraph>=0.4.0",
@@ -34,6 +38,9 @@ build-backend = "hatchling.build"
 
 [project.scripts]
 mcp_pack = "mcp_pack.cli:main"
+
+[tool.uv]
+default-groups = ["default"]
 
 [tool.bumpversion]
 current_version = "0.1.2"

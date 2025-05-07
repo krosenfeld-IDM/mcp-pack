@@ -17,12 +17,12 @@ import dotenv
 dotenv.load_dotenv()
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='app.log', encoding='utf-8', level=logging.INFO)
+logging.basicConfig(filename='simple_app.log', encoding='utf-8', level=logging.INFO)
 async def use_tool(query: str):
     # Explicitly set the current_path to the workspace root
     logger.info("Current working directory: %s", Path(__file__).parent.parent )
     # Calculate the path to the mcp_pack folder relative to the current file
-    current_path = Path(__file__).resolve().parent.parent / "mcp_pack"
+    current_path = Path(__file__).resolve().parents[2] / "src/mcp_pack"
     logger.info("Current server directory: %s", current_path )
     async with MultiServerMCPClient(
         {
@@ -156,8 +156,7 @@ async def main():
 
     history_copy = list(st.session_state.history)
     logger.debug("History: %s", history_copy)
-    # pdb.set_trace()
-    # Display the conversation history
+    
     display_messages(st.session_state.history)
 
 if __name__ == '__main__':

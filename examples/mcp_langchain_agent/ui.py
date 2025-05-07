@@ -7,7 +7,7 @@ import ast
 from pathlib import Path
 from mcp_pack.list_db import QdrantLister
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='ui01.log', encoding='utf-8', level=logging.INFO)
+logging.basicConfig(filename='ui.log', encoding='utf-8', level=logging.INFO)
 logger.formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger.info("============Starting Streamlit app...===============")
 
@@ -91,8 +91,7 @@ def display_result(response):
         else:
             st.markdown(f"**❓ Message ({msg_type}):** {msg_content}")
 
-
-
+st.markdown("<h1 style='color:red;'>AITODIDACT!!!</h1>", unsafe_allow_html=True)
 st.title("Teach yourself! Tutorial Generator")
 st.write("Ask a question or give a scenario, and the AI will generate a tutorial for you.")
 

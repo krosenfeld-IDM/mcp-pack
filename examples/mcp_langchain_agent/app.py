@@ -11,18 +11,17 @@ from langgraph.prebuilt import ToolNode, tools_condition
 from langchain_openai import ChatOpenAI
 from fastapi.responses import HTMLResponse
 from fastapi.staticfiles import StaticFiles
+import config
 
 app = FastAPI()
 
 model = ChatOpenAI(model="gpt-4o")
-sciris_url = "http://localhost:8001/sse" 
-starsim_url = "http://localhost:8002/sse"
 
 dotenv.load_dotenv()
 current_path = Path(__file__).resolve().parent.parent / "mcp_pack"
 
 logger = logging.getLogger(__name__)
-logging.basicConfig(filename='app01.log', encoding='utf-8', level=logging.INFO)
+logging.basicConfig(filename='app.log', encoding='utf-8', level=logging.INFO)
 logger.info("============Starting FastAPI app...===============")
 
 # Mount static files for serving Mermaid.js
@@ -35,22 +34,7 @@ class QueryRequest(BaseModel):
 @app.post("/get-response")
 async def get_response(request: QueryRequest):
     async with MultiServerMCPClient(
-        {
-            # "git-help-quicj": {
-            #     "command": "uv",
-            #     "args": ["run", str(Path(current_path, "server.py"))],
-            #     "transport": "stdio",
-            # }
-
-            "sciris": {
-                "url": sciris_url,
-                "transport": "sse",
-            },
-            "starsim": {
-                "url": starsim_url,
-                "transport": "sse",
-            }
-        }
+      config.MCP_SERVERS
     ) as client:
         tools = client.get_tools()
 
@@ -90,7 +74,8 @@ async def get_response(request: QueryRequest):
         # builder.add_edge("generate_quarto", END)
         graph = builder.compile()
 
-        # workaround for the dynamic conditional edge, since it cannot be drawn
+        # workaround for the dynamic tool in conditional edge, since it cannot be drawn
+        # TODO: Investigate why the dynamic tool cannot be drawn
         def custom_mermaid(builder):
             edges = list(builder.edges)  # only static ones
             logger.info(f" edges: {builder.branches}")
