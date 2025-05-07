@@ -1,5 +1,7 @@
 #!/bin/bash
 
+source .venv/bin/activate
+
 # Check if the Qdrant container is already running
 if ! docker ps --filter "ancestor=qdrant/qdrant" --format "{{.ID}}" | grep -q .; then
     echo "Starting Qdrant container..."
@@ -30,15 +32,18 @@ if lsof -i:8001 | grep -q LISTEN; then
     echo "Sciris mcp is already running on 8001."
 else
     echo "Starting sciris tool on port 8001..."
-    cd src/mcp_pack
+    pushd /workspace/src/mcp_pack
     nohup uv run python server.py --module_name=sciris --port=8001 --transport=sse > sciris.log 2>&1 &
+    popd
 fi
 
 if lsof -i:8002 | grep -q LISTEN; then
     echo "Starsim mcp is already running on 8002."
 else
     echo "Starting starsim tool on port 8002..."
+    pushd /workspace/src/mcp_pack
     nohup uv run python server.py --module_name=starsim --port=8002 --transport=sse > starsim.log 2>&1 &
+    popd
 fi
 
 # Start mcp client FAST API at port 8081
@@ -46,7 +51,9 @@ if lsof -i:8081 | grep -q LISTEN; then
     echo "mcp client FAST API is already running on port 8081."
 else
     echo "Starting mcp client FAST API on port 8081..."
-    uvicorn examples.mcp_langchain_agent.app:app --reload --port 8081 > mcp_app.log 2>&1 &
+    pushd /workspace/examples/mcp_langchain_agent
+    uvicorn app:app --reload --port 8081 > mcp_app.log 2>&1 &
+    popd
 fi
 
 # Start streamlit langgraph at port 8501
@@ -54,5 +61,7 @@ if lsof -i:8501 | grep -q LISTEN; then
     echo "streamlit UI is already running on port 8501."
 else
     echo "Starting UI on port 8502..."
+    pushd examples/mcp_langchain_agent
     uv run python -m streamlit run ui.py --server.port=8501  > mcp_ui.log 2>&1 &
+    popd
 fi
