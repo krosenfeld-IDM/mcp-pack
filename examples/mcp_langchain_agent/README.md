@@ -27,7 +27,7 @@ The MCP LangChain adapter provides a way to connect LangChain tools to MCP serve
 
 ## Usage
 
-See `postStartCommand.sh` for details.
+See [postStartCommand.sh](.devcontainer/mcp_client_example/postStartCommand.sh) for details.
 
 ### Customizing Configurations
 Edit the `config.py` file to update MCP  server configurations and other settings.
