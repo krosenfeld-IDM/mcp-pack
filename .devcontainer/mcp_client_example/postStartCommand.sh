@@ -52,7 +52,7 @@ if lsof -i:8081 | grep -q LISTEN; then
 else
     echo "Starting mcp client FAST API on port 8081..."
     pushd /workspace/examples/mcp_langchain_agent
-    uv run uvicorn app:app --reload --port 8081 > mcp_app.log 2>&1 &
+    uv run uvicorn app:app --reload  --host 0.0.0.0 --port 8081 > mcp_app.log 2>&1 &
     popd
 fi
 
