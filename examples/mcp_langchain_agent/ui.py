@@ -132,7 +132,7 @@ if st.button("Submit"):
                     # Move the Mermaid graph rendering to the sidebar
                     mermaid_syntax = data.get("mermaid_syntax", "")
                     st.sidebar.subheader("Langgraph structure:")
-                    st.sidebar.markdown(mermaid(mermaid_syntax))
+                    mermaid(mermaid_syntax)
                 else:
                     st.error(f"Error: {response.status_code} - {response.text}")
             except requests.exceptions.RequestException as e:
