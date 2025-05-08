@@ -14,6 +14,7 @@
     ],
     "postCreateCommand": "bash ./.devcontainer/mcp_client_example/postCreateCommand.sh",
     "postStartCommand": "bash ./.devcontainer/mcp_client_example/postStartCommand.sh",
+    "postAttachCommand": "bash .devcontainer/postAttachCommand.sh",
     "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
     "workspaceFolder": "/workspace",
     "customizations": {
