@@ -33,6 +33,9 @@ if __name__ == "__main__":
     a, b = 0.0, np.pi
     Ns = [10**4, 10**5, 10**6]
 
+    colors = ['red', 'orange', 'yellow', 'green', 'blue', 'indigo', 'violet']
+    color_index = 0
+
     print(f"{'n':>8s} | {'Loop Result':>12s} | {'Loop Time (s)':>14s} | {'NumPy Result':>12s} | {'NumPy Time (s)':>15s}")
     print("-" * 75)
     for n in Ns:
@@ -46,4 +49,8 @@ if __name__ == "__main__":
         res_np = trap_numpy(np.sin, a, b, n)
         t_np = sc.toc(t0, output=True)
 
-        print(f"{n:8d} | {res_loop:12.8f} | {t_loop:14.6f} | {res_np:12.8f} | {t_np:15.6f}")
+        # Cycle through colors for each row
+        color = colors[color_index % len(colors)]
+        color_index += 1
+
+        print(sc.color(f"{n:8d} | {res_loop:12.8f} | {t_loop:14.6f} | {res_np:12.8f} | {t_np:15.6f}", fg=color))
