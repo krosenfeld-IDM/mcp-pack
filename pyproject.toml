@@ -61,3 +61,8 @@ filename = 'src/mcp_pack/version.py'
 search = "__versiondate__ = '\\d{{4}}-\\d{{2}}-\\d{{2}}'"
 replace = "__versiondate__ = '{now:%Y-%m-%d}'"
 regex = true
+
+[dependency-groups]
+sciris = [
+    "sciris>=3.2.1",
+]
