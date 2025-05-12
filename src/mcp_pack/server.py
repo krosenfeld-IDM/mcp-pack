@@ -115,6 +115,14 @@ class ModuleQueryServer:
             hits = client.query_points(
                 collection_name=self.collection_name,
                 query=self.encoder.encode(query).tolist(),
+                query_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="type",
+                            match=models.MatchAny(any=["function", "class"])
+                        )
+                    ]
+                ),
                 with_payload=True,
                 limit=limit
             ).points
