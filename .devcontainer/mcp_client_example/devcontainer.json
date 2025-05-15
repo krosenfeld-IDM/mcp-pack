@@ -1,0 +1,27 @@
+{
+    "name": "MCP Dev Container",
+    "features": {
+        "ghcr.io/devcontainers/features/python:1": { "version": "3.12" },
+        "ghcr.io/devcontainers/features/docker-in-docker:2": {}   
+    },
+    "forwardPorts": [
+        6333,
+        6334,
+        8001,
+        8002,
+        8081,
+        8501
+    ],
+    "postCreateCommand": "bash ./.devcontainer/mcp_client_example/postCreateCommand.sh",
+    "postStartCommand": "bash ./.devcontainer/mcp_client_example/postStartCommand.sh",
+    "postAttachCommand": "bash .devcontainer/mcp_client_example/postAttachCommand.sh",
+    "workspaceMount": "source=${localWorkspaceFolder},target=/workspace,type=bind",
+    "workspaceFolder": "/workspace",
+    "customizations": {
+        "vscode": {
+            "settings": {
+                "terminal.integrated.defaultProfile.linux": "bash"
+            }
+        }
+    }
+}
