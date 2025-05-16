@@ -17,6 +17,12 @@ from nbconvert import PythonExporter
 import openai
 import argparse
 
+def parse_repo_url(repo_url: str) -> Tuple[str, str]:
+    """Parse a GitHub repository URL into owner and repo name."""
+    parsed_url = urlparse(repo_url)
+    path_parts = parsed_url.path.strip('/').split('/')
+    owner, repo = path_parts[0], path_parts[1]
+    return owner, repo
 
 class GitModuleHelpDB:
     """A class for creating and managing a documentation database for Python modules from GitHub repositories.
@@ -25,7 +31,7 @@ class GitModuleHelpDB:
     and create a searchable database using Qdrant for efficient documentation retrieval.
     """
     
-    def __init__(self, db_path: str = None, qdrant_url: str = 'http://localhost:6333', github_token: str = None, openai_api_key: str = None):
+    def __init__(self, db_path: str = None, qdrant_url: str = 'http://localhost:6333', github_token: str = None, openai_api_key: str = None, model: str = "gpt-4o"):
         """Initialize the GitModuleHelpDB instance.
         
         Args:
@@ -41,6 +47,7 @@ class GitModuleHelpDB:
         self.client = qdrant_client.QdrantClient(qdrant_url)
         self.github_token = github_token
         self.headers = {'Authorization': f'token {github_token}'} if github_token else {}
+        self.model = "gpt-4o" or model
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         if self.openai_api_key:
             openai.api_key = self.openai_api_key
@@ -49,6 +56,8 @@ class GitModuleHelpDB:
         self.dir_cache = {}
         # Maximum number of retries for API calls
         self.max_retries = 5
+        self.owner = None
+        self.repo = None
     
     def _extract_docstring(self, node: ast.AST) -> tuple[str, str]:
         """Extract docstring from an AST node and its header."""
@@ -214,11 +223,15 @@ class GitModuleHelpDB:
     
     def analyze_repository(self, repo_url: str, include_notebooks: bool = False, include_rst: bool = False) -> List[Dict[str, Any]]:
         """Analyze all .py, .ipynb, and .rst files in a GitHub repository when their flags are True."""
+
         # Parse the repository URL
         parsed_url = urlparse(repo_url)
         path_parts = parsed_url.path.strip('/').split('/')
         owner, repo = path_parts[0], path_parts[1]
-        
+
+        # set the repo name
+        self.repo = repo
+
         # Get all Python files
         files, notebooks, rst_files = self._get_github_files(owner, repo, load_ipynb=include_notebooks, load_rst=include_rst)
         all_results = []
@@ -260,10 +273,10 @@ class GitModuleHelpDB:
                     nb = nbformat.reads(ipynb_content, as_version=4)
                     py_exporter = PythonExporter()
                     py_code, _ = py_exporter.from_notebook_node(nb)
-                    summary = self._summarize_notebook(py_code, notebook['name'])
+                    summary = self._summarize_document(py_code, notebook['name'])
                     doc = {
                         "name": notebook['name'],
-                        "type": "notebook",
+                        "type": "doc",
                         "file": notebook['path'],
                         "repo": f"{owner}/{repo}",
                         "docstring_header": summary,
@@ -272,23 +285,25 @@ class GitModuleHelpDB:
                     }
                     docs.append(doc)
                 except Exception as e:
-                    print(f"Error processing notebook {file['name']}: {e}")
+                    print(f"Error processing notebook {notebook['name']}: {e}")
         return docs
 
-    def _summarize_notebook(self, py_code: str, fname: str) -> str:
+    def _summarize_document(self, py_code: str, fname: str) -> str:
         """Summarize the notebook using OpenAI chat.completions."""
         if not self.openai_api_key:
             return "[OpenAI API key not provided, cannot summarize]"
         prompt = (
-            f"Summarize the following Jupyter notebook tutorial ({fname}) in a concise paragraph. "
-            "Focus on the main functionality, key steps, and what a user will learn.\n\n"
-            f"Notebook code:\n{py_code[:4000]}"
+            f"Summarize the following document ({fname}) for the repository and associated package '{self.repo}' in a concise paragraph. "
+            f"### Document code ### \n{py_code[:4000]}"
         )
         try:
             client = openai.Client()
             response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "system", "content": "You are a helpful assistant."},
+                model=self.model,
+                messages=[{"role": "system", "content": (f"You are a helpful assistant tasked to summarize a document."
+                                                         f"Focus on the main functionality and what a user will learn for the repository and associated package: '{self.repo}'."
+                                                         f"Make sure to identify what functions, classes, and capabilities are featured in the document."
+                                                        )},
                           {"role": "user", "content": prompt}],
                 max_tokens=5_000,
                 temperature=0.7,
@@ -309,16 +324,16 @@ class GitModuleHelpDB:
         for rst in rst_files:
             if rst['name'].endswith('.rst'):
                 try:
-                    content = self._get_github_file_content(owner, repo, rst['path'])
-                    header = next((line.strip() for line in content.split('\n') if line.strip()), "")
+                    rst_content = self._get_github_file_content(owner, repo, rst['path'])
+                    summary = self._summarize_document(rst_content, rst['name'])
                     doc = {
                         "name": rst['name'],
-                        "type": "rst",
+                        "type": "doc",
                         "file": rst['path'],
                         "repo": f"{owner}/{repo}",
-                        "docstring_header": header,
-                        "docstring": content,
-                        "source_code": content,
+                        "docstring_header": summary,
+                        "docstring": summary,
+                        "source_code": rst_content,
                     }
                     docs.append(doc)
                 except Exception as e:
@@ -342,11 +357,11 @@ class GitModuleHelpDB:
             points=[
                 models.PointStruct(
                     id=idx, 
-                    vector=self.encoder.encode(f'{doc["name"]}:\n{doc["docstring_header"]}').tolist(), 
+                    vector=self.encoder.encode(f'{doc["name"]}:\n{doc["docstring"]}').tolist(), 
                     payload=doc
                 )
                 for idx, doc in enumerate(docs)
-                if doc["docstring_header"]  # Skip if docstring_header is empty
+                if len(doc["docstring"]) > 1      # Skip if docstring_header is empty
             ],
         )
         return self.client.get_collections()
@@ -367,6 +382,7 @@ class GitModuleHelpDB:
 
         # Analyze the repository
         print(f"Analyzing repository: {repo_url}")
+        self.owner, self.repo = parse_repo_url(repo_url)
         results = self.analyze_repository(repo_url, include_notebooks=include_notebooks, include_rst=include_rst)
         print(f"Found {len(results)} documented items")
         
@@ -409,6 +425,7 @@ if __name__ == "__main__":
     parser.add_argument('--qdrant-url', help='Qdrant server URL', default='http://localhost:6333')
     parser.add_argument('--github-token', help='GitHub personal access token', default=None)
     parser.add_argument('--openai-api-key', help='OpenAI API key', default=None)
+    parser.add_argument('--model', help='OpenAI model', default="gpt-4o")
     args = parser.parse_args()
 
     env_github_token = os.environ.get('GITHUB_TOKEN')

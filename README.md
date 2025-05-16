@@ -42,7 +42,8 @@ mcp_pack create_db @https://github.com/user/repo \
     --include-notebooks \
     --include-rst \
     --github-token YOUR_GITHUB_TOKEN \
-    --openai-api_key YOUR_OPENAI_API_KEY
+    --openai-api_key YOUR_OPENAI_API_KEY \
+    --model OPENAI_MODEL
 ```
 
 ### Clean the database

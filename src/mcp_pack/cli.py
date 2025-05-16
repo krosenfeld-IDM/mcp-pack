@@ -95,7 +95,7 @@ def main():
     create_parser.add_argument('--qdrant-url', help='Qdrant server URL', default='http://localhost:6333')
     create_parser.add_argument('--github-token', help='GitHub personal access token', default=None)
     create_parser.add_argument('--openai-api-key', help='OpenAI API key', default=None)
-    
+    create_parser.add_argument('--model', help='OpenAI model', default="gpt-4o")
     # Clean DB command
     clean_parser = subparsers.add_parser('clean_db', help='Clean Qdrant database collections')
     clean_parser.add_argument('--qdrant-url', help='Qdrant server URL', default='http://localhost:6333')
