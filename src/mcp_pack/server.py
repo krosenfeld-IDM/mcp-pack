@@ -5,7 +5,7 @@ from typing import Any, Dict, List, Optional
 import os
 import argparse
 
-search_docstring_template = """
+search_docstring_desc_template = """
             Retrieves relevant docstrings and source code from {module_name} module functions or classes based on a search query.
             
             This tool performs a semantic search against indexed {module_name} documentation to find
@@ -42,7 +42,7 @@ search_docs_desc_template = """
                 The returned examples may need adaptation for your specific use case.
             """
 
-search_docstring_fn_template = """search_{module_name}_docs"""
+search_doc_fn_template = """search_{module_name}_docs"""
 
 class ModuleQueryServer:
     """
@@ -85,7 +85,8 @@ class ModuleQueryServer:
     def register_tools(self):
         """Register all query tools with the MCP server."""
         
-        @self.mcp.tool(description = search_docstring_template.format(module_name = self.module_name))
+        @self.mcp.tool(name = search_docstring_fn_template.format(module_name=self.module_name), 
+                    description = search_docstring_desc_template.format(module_name = self.module_name))
         async def search_module_docstring(query: str, limit: int = 3, return_code:bool = False) -> List[str]:
 
             client = self.get_qdrant_client()
@@ -102,16 +103,16 @@ class ModuleQueryServer:
                 if i > 0:
                     result.append("#################################################")
                 msg = (f'RESULT NUMBER: {i+1}:\n'
-                       f'NAME: {hit.payload["name"]}\n'
-                       f'TYPE: {hit.payload["type"]}\n'
-                       f'DOCSTRING:\n {hit.payload["docstring"]}\n')
+                       f'NAME: {hit.payload["name"]}\n' # type: ignore
+                       f'TYPE: {hit.payload["type"]}\n' # type: ignore
+                       f'DOCSTRING:\n {hit.payload["docstring"]}\n') # type: ignore
                 if return_code:
-                    msg += f'SOURCECODE:\n {hit.payload["source_code"]}\n'
+                    msg += f'SOURCECODE:\n {hit.payload["source_code"]}\n' # type: ignore
                 result.append(msg)
                 
             return result
         
-        @self.mcp.tool(name = search_docstring_fn_template.format(modeul_name = self.module_name), 
+        @self.mcp.tool(name = search_doc_fn_template.format(module_name = self.module_name), 
                        description = search_docs_desc_template.format(module_name = self.module_name))
         async def search_module_docs(topic: str) -> Dict[str, Any]:
             client = self.get_qdrant_client()
@@ -123,7 +124,7 @@ class ModuleQueryServer:
                     must=[
                         models.FieldCondition(
                             key="type",
-                            match=models.MatchValue(value="notebook")
+                            match=models.MatchValue(value="doc")
                         )
                     ]
                 ),
@@ -139,9 +140,9 @@ class ModuleQueryServer:
                 }
             
             result = {
-                'name': notebooks[0].payload['name'], 
-                'type': notebooks[0].payload['type'], 
-                'result': notebooks[0].payload['source_code']
+                'name': notebooks[0].payload['name'],  # type: ignore
+                'type': notebooks[0].payload['type'],  # type: ignore
+                'result': notebooks[0].payload['source_code'] # type: ignore
             }
             
             return result
@@ -150,7 +151,7 @@ class ModuleQueryServer:
         """Start the MCP server with the specified transport."""
         if transport == "sse":
             self.mcp.settings.port = port
-        self.mcp.run(transport=transport)
+        self.mcp.run(transport=transport) # type: ignore
 
 # Example usage
 if __name__ == "__main__":
