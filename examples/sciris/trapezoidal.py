@@ -1,3 +1,6 @@
+"""
+In this script can you also show how to do a simple numerical integration using sciris? Add it as one of the timed examples.
+"""
 import numpy as np
 import time
 
