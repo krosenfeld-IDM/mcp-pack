@@ -17,6 +17,13 @@ from nbconvert import PythonExporter
 import openai
 import argparse
 
+def parse_repo_url(repo_url: str) -> Tuple[str, str]:
+    """Parse a GitHub repository URL into owner and repo name."""
+    parsed_url = urlparse(repo_url)
+    path_parts = parsed_url.path.strip('/').split('/')
+    owner, repo = path_parts[0], path_parts[1]
+    return owner, repo
+
 
 class GitModuleHelpDB:
     """A class for creating and managing a documentation database for Python modules from GitHub repositories.
@@ -25,7 +32,9 @@ class GitModuleHelpDB:
     and create a searchable database using Qdrant for efficient documentation retrieval.
     """
     
-    def __init__(self, db_path: str = None, qdrant_url: str = 'http://localhost:6333', github_token: str = None, openai_api_key: str = None):
+    def __init__(self, db_path: str | None = None, qdrant_url: str = 'http://localhost:6333',
+                 model: str | None = 'gpt-4o',
+                 github_token: str | None = None, openai_api_key: str | None = None):
         """Initialize the GitModuleHelpDB instance.
         
         Args:
@@ -42,8 +51,8 @@ class GitModuleHelpDB:
         self.github_token = github_token
         self.headers = {'Authorization': f'token {github_token}'} if github_token else {}
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
-        if self.openai_api_key:
-            openai.api_key = self.openai_api_key
+        self.module_name = None
+        self.model = model
         # Add file content cache to reduce API calls
         self.file_cache = {}
         self.dir_cache = {}
@@ -190,7 +199,7 @@ class GitModuleHelpDB:
         
         return files, notebooks, rst_files
     
-    def analyze_file(self, owner: str, repo: str, file_path: str) -> List[Dict[str, Any]]:
+    def analyze_python_file(self, owner: str, repo: str, file_path: str) -> List[Dict[str, Any]]:
         """Analyze a Python file from GitHub and extract function and class information."""
         source = self._get_github_file_content(owner, repo, file_path)
         tree = ast.parse(source)
@@ -214,10 +223,9 @@ class GitModuleHelpDB:
     
     def analyze_repository(self, repo_url: str, include_notebooks: bool = False, include_rst: bool = False) -> List[Dict[str, Any]]:
         """Analyze all .py, .ipynb, and .rst files in a GitHub repository when their flags are True."""
+
         # Parse the repository URL
-        parsed_url = urlparse(repo_url)
-        path_parts = parsed_url.path.strip('/').split('/')
-        owner, repo = path_parts[0], path_parts[1]
+        owner, repo = parse_repo_url(repo_url)
         
         # Get all Python files
         files, notebooks, rst_files = self._get_github_files(owner, repo, load_ipynb=include_notebooks, load_rst=include_rst)
@@ -226,7 +234,7 @@ class GitModuleHelpDB:
         for file in files:
             if file['name'] != '__init__.py':  # Skip __init__.py files
                 try:
-                    results = self.analyze_file(owner, repo, file['path'])
+                    results = self.analyze_python_file(owner, repo, file['path'])
                     all_results.extend(results)
                     print(f"Processed {file['path']}")
                 except Exception as e:
@@ -244,6 +252,30 @@ class GitModuleHelpDB:
 
         return all_results
     
+    def _summarize_document(self, py_code: str, fname: str) -> str:
+        """Summarize the notebook using OpenAI chat.completions."""
+        if not self.openai_api_key:
+            return "[OpenAI API key not provided, cannot summarize]"
+        prompt = (
+            f"Summarize the following document ({fname}) for the repository and associated package '{self.module_name}' in a concise paragraph. "
+            f"### Document ### \n{py_code[:4000]}"
+        )
+        try:
+            client = openai.Client()
+            response = client.chat.completions.create(
+                model=self.model,
+                messages=[{"role": "system", "content": (f"You are a helpful assistant tasked to summarize a document."
+                                                         f"Focus on the main functionality and what a user will learn about the repository and associated package: '{self.module_name}'."
+                                                         f"Make sure to identify what functions, classes, and capabilities are featured in the document."
+                                                        )},
+                          {"role": "user", "content": prompt}],
+                max_tokens=5_000,
+                temperature=0.7,
+            )
+            return response.choices[0].message.content.strip()
+        except Exception as e:
+            return f"[OpenAI error: {e}]"    
+    
     def _process_notebooks(self, repo_url: str, notebooks: List[Dict[str, Any]]) -> list:
         """Process .ipynb files in the repository, convert to .py, summarize, and return docs."""
         
@@ -260,10 +292,11 @@ class GitModuleHelpDB:
                     nb = nbformat.reads(ipynb_content, as_version=4)
                     py_exporter = PythonExporter()
                     py_code, _ = py_exporter.from_notebook_node(nb)
-                    summary = self._summarize_notebook(py_code, notebook['name'])
+                    # summary = self._summarize_notebook(py_code, notebook['name'])
+                    summary = self._summarize_document(py_code, notebook['name'])
                     doc = {
                         "name": notebook['name'],
-                        "type": "notebook",
+                        "type": "doc",
                         "file": notebook['path'],
                         "repo": f"{owner}/{repo}",
                         "docstring_header": summary,
@@ -272,30 +305,8 @@ class GitModuleHelpDB:
                     }
                     docs.append(doc)
                 except Exception as e:
-                    print(f"Error processing notebook {file['name']}: {e}")
+                    print(f"Error processing notebook {notebook['name']}: {e}")
         return docs
-
-    def _summarize_notebook(self, py_code: str, fname: str) -> str:
-        """Summarize the notebook using OpenAI chat.completions."""
-        if not self.openai_api_key:
-            return "[OpenAI API key not provided, cannot summarize]"
-        prompt = (
-            f"Summarize the following Jupyter notebook tutorial ({fname}) in a concise paragraph. "
-            "Focus on the main functionality, key steps, and what a user will learn.\n\n"
-            f"Notebook code:\n{py_code[:4000]}"
-        )
-        try:
-            client = openai.Client()
-            response = client.chat.completions.create(
-                model="gpt-4o",
-                messages=[{"role": "system", "content": "You are a helpful assistant."},
-                          {"role": "user", "content": prompt}],
-                max_tokens=5_000,
-                temperature=0.7,
-            )
-            return response.choices[0].message.content.strip()
-        except Exception as e:
-            return f"[OpenAI error: {e}]"
     
     def _process_rst(self, repo_url: str, rst_files: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Process .rst files in the repository, extract content and headers."""
@@ -310,14 +321,14 @@ class GitModuleHelpDB:
             if rst['name'].endswith('.rst'):
                 try:
                     content = self._get_github_file_content(owner, repo, rst['path'])
-                    header = next((line.strip() for line in content.split('\n') if line.strip()), "")
+                    summary = self._summarize_document(content, rst['name'])
                     doc = {
                         "name": rst['name'],
-                        "type": "rst",
+                        "type": "doc",
                         "file": rst['path'],
                         "repo": f"{owner}/{repo}",
-                        "docstring_header": header,
-                        "docstring": content,
+                        "docstring_header": summary,
+                        "docstring": summary,
                         "source_code": content,
                     }
                     docs.append(doc)
@@ -351,19 +362,22 @@ class GitModuleHelpDB:
         )
         return self.client.get_collections()
     
-    def process_repository(self, repo_url: str, output_dir: str = None, verbose: bool = False, include_notebooks: bool = False, include_rst: bool = False) -> List[Dict[str, Any]]:
+    def process_repository(self, repo_url: str, module_name: str | None = None, output_dir: str | None = None, verbose: bool = False, include_notebooks: bool = False, include_rst: bool = False) -> List[Dict[str, Any]]:
         """Process a GitHub repository and create its documentation database.
         
         Args:
             repo_url: URL of the GitHub repository to process
+            module_name: Name of the module (optional)
             output_dir: Directory to save JSONL output (optional)
-            verbose: Whether to print detailed information
-            include_notebooks: Whether to include Jupyter notebooks
-            include_rst: Whether to include .rst files
+            verbose: Whether to print detailed information (optional)
+            include_notebooks: Whether to include Jupyter notebooks (optional)
+            include_rst: Whether to include .rst files (optional)
             
         Returns:
             List of analyzed documentation items
         """
+
+        self.module_name = module_name or repo_url.split('/')[-1]
 
         # Analyze the repository
         print(f"Analyzing repository: {repo_url}")
