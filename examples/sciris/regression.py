@@ -1,3 +1,7 @@
+"""
+Can you add an example of how to do the linear regressions using sciris?
+Change the timing functionality to use sciris.
+"""
 import numpy as np
 import time
 
