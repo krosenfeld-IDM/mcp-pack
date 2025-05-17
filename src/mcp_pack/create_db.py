@@ -165,8 +165,20 @@ class GitModuleHelpDB:
         
         return decoded_content
     
-    def _get_github_files(self, owner: str, repo: str, path: str = '', load_ipynb: bool = False, load_rst: bool = False) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
-        """Get all Python, Jupyter Notebook (.ipynb), and RST (.rst) files from a GitHub repository when their flags are True."""
+    def _get_github_files(self, owner: str, repo: str, path: str = '', load_ipynb: bool = False, load_rst: bool = False, exclude_tests: bool = False) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+        """Get all Python, Jupyter Notebook (.ipynb), and RST (.rst) files from a GitHub repository when their flags are True.
+        
+        Args:
+            owner: Repository owner
+            repo: Repository name
+            path: Path within repository
+            load_ipynb: Whether to include Jupyter notebooks
+            load_rst: Whether to include RST files
+            exclude_tests: Whether to exclude test files and directories
+            
+        Returns:
+            Tuple of (Python files, Notebook files, RST files)
+        """
         # Check cache first
         cache_key = f"{owner}/{repo}/{path}"
         if cache_key in self.dir_cache:
@@ -182,6 +194,15 @@ class GitModuleHelpDB:
         notebooks = []
         rst_files = []
         for item in response_json:
+            # Skip test files and directories if exclude_tests is True
+            if exclude_tests and (
+                item['name'].startswith('test_') or 
+                item['name'].endswith('_test.py') or 
+                item['name'] == 'tests' or 
+                'test' in item['name'].lower()
+            ):
+                continue
+                
             if item['type'] == 'file' and item['name'].endswith('.py'):
                 files.append(item)
             elif item['type'] == 'file' and item['name'].endswith('.ipynb') and load_ipynb:
@@ -189,7 +210,12 @@ class GitModuleHelpDB:
             elif item['type'] == 'file' and item['name'].endswith('.rst') and load_rst:
                 rst_files.append(item)
             elif item['type'] == 'dir':
-                files_, notebooks_, rst_files_ = self._get_github_files(owner, repo, item['path'], load_ipynb=load_ipynb, load_rst=load_rst)
+                files_, notebooks_, rst_files_ = self._get_github_files(
+                    owner, repo, item['path'], 
+                    load_ipynb=load_ipynb, 
+                    load_rst=load_rst,
+                    exclude_tests=exclude_tests
+                )
                 files.extend(files_)
                 notebooks.extend(notebooks_)
                 rst_files.extend(rst_files_)
@@ -221,14 +247,29 @@ class GitModuleHelpDB:
         
         return results
     
-    def analyze_repository(self, repo_url: str, include_notebooks: bool = False, include_rst: bool = False) -> List[Dict[str, Any]]:
-        """Analyze all .py, .ipynb, and .rst files in a GitHub repository when their flags are True."""
+    def analyze_repository(self, repo_url: str, include_notebooks: bool = False, include_rst: bool = False, exclude_tests: bool = False) -> List[Dict[str, Any]]:
+        """Analyze all .py, .ipynb, and .rst files in a GitHub repository when their flags are True.
+        
+        Args:
+            repo_url: URL of the GitHub repository to analyze
+            include_notebooks: Whether to include Jupyter notebooks
+            include_rst: Whether to include RST files
+            exclude_tests: Whether to exclude test files and directories
+            
+        Returns:
+            List of analyzed documentation items
+        """
 
         # Parse the repository URL
         owner, repo = parse_repo_url(repo_url)
         
         # Get all Python files
-        files, notebooks, rst_files = self._get_github_files(owner, repo, load_ipynb=include_notebooks, load_rst=include_rst)
+        files, notebooks, rst_files = self._get_github_files(
+            owner, repo, 
+            load_ipynb=include_notebooks, 
+            load_rst=include_rst,
+            exclude_tests=exclude_tests
+        )
         all_results = []
         
         for file in files:
@@ -362,7 +403,7 @@ class GitModuleHelpDB:
         )
         return self.client.get_collections()
     
-    def process_repository(self, repo_url: str, module_name: str | None = None, output_dir: str | None = None, verbose: bool = False, include_notebooks: bool = False, include_rst: bool = False) -> List[Dict[str, Any]]:
+    def process_repository(self, repo_url: str, module_name: str | None = None, output_dir: str | None = None, verbose: bool = False, include_notebooks: bool = False, include_rst: bool = False, exclude_tests: bool = False) -> List[Dict[str, Any]]:
         """Process a GitHub repository and create its documentation database.
         
         Args:
@@ -372,6 +413,7 @@ class GitModuleHelpDB:
             verbose: Whether to print detailed information (optional)
             include_notebooks: Whether to include Jupyter notebooks (optional)
             include_rst: Whether to include .rst files (optional)
+            exclude_tests: Whether to exclude test files and directories (optional)
             
         Returns:
             List of analyzed documentation items
@@ -381,7 +423,12 @@ class GitModuleHelpDB:
 
         # Analyze the repository
         print(f"Analyzing repository: {repo_url}")
-        results = self.analyze_repository(repo_url, include_notebooks=include_notebooks, include_rst=include_rst)
+        results = self.analyze_repository(
+            repo_url, 
+            include_notebooks=include_notebooks, 
+            include_rst=include_rst,
+            exclude_tests=exclude_tests
+        )
         print(f"Found {len(results)} documented items")
         
         # Save results to a JSONL file if output directory is specified
@@ -419,6 +466,7 @@ if __name__ == "__main__":
     parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
     parser.add_argument('--include-notebooks', action='store_true', help='Include Jupyter notebooks')
     parser.add_argument('--include-rst', action='store_true', help='Include rst files')
+    parser.add_argument('--exclude-tests', action='store_true', help='Exclude test files and directories')
     parser.add_argument('--db-path', help='Path to store the database', default=None)
     parser.add_argument('--qdrant-url', help='Qdrant server URL', default='http://localhost:6333')
     parser.add_argument('--github-token', help='GitHub personal access token', default=None)
@@ -443,5 +491,6 @@ if __name__ == "__main__":
         output_dir=args.output_dir,
         verbose=args.verbose,
         include_notebooks=args.include_notebooks,
-        include_rst=args.include_rst
+        include_rst=args.include_rst,
+        exclude_tests=args.exclude_tests
     )
