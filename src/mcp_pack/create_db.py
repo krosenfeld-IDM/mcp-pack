@@ -199,7 +199,11 @@ class GitModuleHelpDB:
                 item['name'].startswith('test_') or 
                 item['name'].endswith('_test.py') or 
                 item['name'] == 'tests' or 
-                'test' in item['name'].lower()
+                item['name'] == 'conftest.py' or
+                item['name'].endswith('_spec.py') or
+                '_test_' in item['name'] or
+                'test' in item['name'].lower() or
+                any(test_dir in item['name'].lower() for test_dir in ['test_', '_test', 'testing', 'unit_tests', 'integration_tests'])
             ):
                 continue
                 
