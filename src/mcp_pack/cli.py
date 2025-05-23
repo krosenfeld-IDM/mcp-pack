@@ -33,10 +33,12 @@ def create_db_command(args):
     
     db.process_repository(
         repo_url,
+        module_name=args.module_name,
         output_dir=args.output_dir,
         verbose=args.verbose,
         include_notebooks=args.include_notebooks,
-        include_rst=args.include_rst
+        include_rst=args.include_rst,
+        exclude_tests=args.exclude_tests
     )
 
 def clean_db_command(args):
@@ -91,6 +93,8 @@ def main():
     create_parser.add_argument('--verbose', '-v', action='store_true', help='Verbose output')
     create_parser.add_argument('--include-notebooks', action='store_true', help='Include Jupyter notebooks')
     create_parser.add_argument('--include-rst', action='store_true', help='Include RST files')
+    create_parser.add_argument('--exclude-tests', action='store_true', help='Exclude test files and directories')
+    create_parser.add_argument('--module-name', help='Name of the module (defaults to repository name)')
     create_parser.add_argument('--db-path', help='Path to store the database', default=None)
     create_parser.add_argument('--qdrant-url', help='Qdrant server URL', default='http://localhost:6333')
     create_parser.add_argument('--github-token', help='GitHub personal access token', default=None)
