@@ -3,6 +3,11 @@
 A tool for creating and managing documentation databases from GitHub repositories.
 
 ## Quickstart to create a database
+Start the Qdrant server:
+```bash
+docker compose up
+```
+
 With a Qdrant server running:
 ```bash
 uvx mcp_pack create_db https://github.com/user/repo
@@ -134,3 +139,7 @@ options:
   --collection COLLECTION
                         Specific collection to delete (optional, if not provided, all collections will be deleted)
 ```
+
+## Resources
+- [Qdrant quickstart](https://qdrant.tech/documentation/quickstart/)
+- [Qdrant API](https://api.qdrant.tech/v-1-14-x/api-reference)
