@@ -19,7 +19,7 @@ import argparse
 
 def parse_repo_url(repo_url: str) -> Tuple[str, str]:
     """Parse a GitHub repository URL into owner and repo name."""
-    parsed_url = urlparse(repo_url)
+    parsed_url = urlparse(repo_url)  # noqa: F821
     path_parts = parsed_url.path.strip('/').split('/')
     owner, repo = path_parts[0], path_parts[1]
     return owner, repo
@@ -51,8 +51,8 @@ class GitModuleHelpDB:
         self.github_token = github_token
         self.headers = {'Authorization': f'token {github_token}'} if github_token else {}
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
-        self.module_name = None
-        self.model = model
+        self.module_name: str | None = None
+        self.model: str | None = model
         # Add file content cache to reduce API calls
         self.file_cache = {}
         self.dir_cache = {}
@@ -164,6 +164,18 @@ class GitModuleHelpDB:
         self.file_cache[cache_key] = decoded_content
         
         return decoded_content
+    
+    def _get_readme_content(self, owner: str, repo: str) -> str | None:
+        """Get the content of README.md or README.rst from a GitHub repository."""
+        try:
+            # Try README.md first
+            return self._get_github_file_content(owner, repo, 'README.md')
+        except ValueError:
+            try:
+                # Try README.rst if README.md doesn't exist
+                return self._get_github_file_content(owner, repo, 'README.rst')
+            except ValueError:
+                return None
     
     def _get_github_files(self, owner: str, repo: str, path: str = '', load_ipynb: bool = False, load_rst: bool = False, exclude_tests: bool = False) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
         """Get all Python, Jupyter Notebook (.ipynb), and RST (.rst) files from a GitHub repository when their flags are True.
@@ -358,16 +370,16 @@ class GitModuleHelpDB:
         
         # Parse the repository URL
         parsed_url = urlparse(repo_url)
-        path_parts = parsed_url.path.strip('/').split('/')
+        path_parts: list[str] = parsed_url.path.strip('/').split('/')
         owner, repo = path_parts[0], path_parts[1]
         
-        docs = []
+        docs: list[dict[str, str | Any]] = []
         for rst in rst_files:
             if rst['name'].endswith('.rst'):
                 try:
-                    content = self._get_github_file_content(owner, repo, rst['path'])
-                    summary = self._summarize_document(content, rst['name'])
-                    doc = {
+                    content: str = self._get_github_file_content(owner, repo, rst['path'])
+                    summary: str = self._summarize_document(content, rst['name'])
+                    doc: dict[str, str] = {
                         "name": rst['name'],
                         "type": "doc",
                         "file": rst['path'],
@@ -392,6 +404,35 @@ class GitModuleHelpDB:
                 distance=models.Distance.COSINE,
             ),
         )
+
+        # Get repository info from the first doc
+        if docs:
+            repo_parts = docs[0]['repo'].split('/')
+            owner, repo = repo_parts[0], repo_parts[1]
+            
+            # Get README content
+            readme_content: str | None = self._get_readme_content(owner, repo)
+            
+            # Create metadata point with README
+            metadata_point = models.PointStruct(
+                id=0,
+                vector=[0.0] * self.encoder.get_sentence_embedding_dimension(),
+                payload={
+                    "type": "metadata",
+                    "readme_content": readme_content if readme_content else "No README found",
+                    "repository": f"{owner}/{repo}",
+                    "repository_url": f"https://github.com/{owner}/{repo}",
+                    "created_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                    "total_docs": len(docs)
+                }
+            )
+            
+            # Upload metadata point
+            self.client.upsert(
+                collection_name=name,
+                points=[metadata_point]
+            )
+
         # Upload the docs
         self.client.upload_points(
             collection_name=name,
@@ -424,6 +465,16 @@ class GitModuleHelpDB:
         """
 
         self.module_name = module_name or repo_url.split('/')[-1]
+        repo_name = repo_url.split('/')[-1]
+
+        # Check if collection exists
+        collections = self.client.get_collections()
+        collection_names = [collection.name for collection in collections.collections]
+        
+        if repo_name in collection_names:
+            raise ValueError(f"Collection '{repo_name}' already exists.")
+            # print(f"Collection '{repo_name}' already exists. Deleting it first...")
+            # self.client.delete_collection(repo_name)
 
         # Analyze the repository
         print(f"Analyzing repository: {repo_url}")
@@ -438,13 +489,11 @@ class GitModuleHelpDB:
         # Save results to a JSONL file if output directory is specified
         if output_dir:
             os.makedirs(output_dir, exist_ok=True)
-            repo_name = repo_url.split('/')[-1]
             with open(os.path.join(output_dir, f'{repo_name}_docs.jsonl'), 'w', encoding='utf-8') as f:
                 for item in results:
                     f.write(json.dumps(item) + '\n')
         
         # Create the database
-        repo_name = repo_url.split('/')[-1]
         self.create_database(repo_name, results)
         
         # Print results if verbose

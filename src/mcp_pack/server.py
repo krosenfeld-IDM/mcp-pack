@@ -84,7 +84,21 @@ class ModuleQueryServer:
     
     def register_tools(self):
         """Register all query tools with the MCP server."""
+
+        @self.mcp.tool(name=f"get_{self.module_name}_summary".format(module_name=self.module_name),
+                       description=f"Get a high level summary of the {self.module_name} module.")
+        async def get_module_summary() -> str:
+
+            client = self.get_qdrant_client()
         
+            result = client.retrieve(
+                collection_name=self.collection_name,
+                ids=[0]  # Use your reserved metadata point ID
+            )
+
+            return result[0].payload["readme_content"]
+
+
         @self.mcp.tool(name = search_docstring_fn_template.format(module_name=self.module_name), 
                     description = search_docstring_desc_template.format(module_name = self.module_name))
         async def search_module_docstring(query: str, limit: int = 3, return_code:bool = False) -> List[str]:
