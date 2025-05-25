@@ -49,7 +49,7 @@ class GitModuleHelpDB:
         self.encoder = SentenceTransformer("all-MiniLM-L6-v2")
         self.client = qdrant_client.QdrantClient(qdrant_url)
         self.github_token = github_token
-        self.headers = {'Authorization': f'token {github_token}'} if github_token else {}
+        self.headers = {'Authorization': f'Bearer  {github_token}'} if github_token else {}
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         self.module_name: str | None = None
         self.model: str | None = model
@@ -68,7 +68,7 @@ class GitModuleHelpDB:
         if not docstring:
             return "", ""
         
-        lines = [line.strip() for line in docstring.split('\n')]
+        lines: list[str] = [line.strip() for line in docstring.split('\n')]
         header = next((line for line in lines if line), "")
         
         if len(lines) > 1 and not lines[1]:
@@ -87,8 +87,8 @@ class GitModuleHelpDB:
         if not isinstance(node, (ast.FunctionDef, ast.ClassDef)):
             return ""
         
-        start_lineno = node.lineno
-        end_lineno = node.end_lineno if hasattr(node, 'end_lineno') else start_lineno
+        start_lineno: int = node.lineno
+        end_lineno: int | None = node.end_lineno if hasattr(node, 'end_lineno') else start_lineno
         lines = source.split('\n')
         return '\n'.join(lines[start_lineno-1:end_lineno])
     
@@ -192,19 +192,19 @@ class GitModuleHelpDB:
             Tuple of (Python files, Notebook files, RST files)
         """
         # Check cache first
-        cache_key = f"{owner}/{repo}/{path}"
+        cache_key: str = f"{owner}/{repo}/{path}"
         if cache_key in self.dir_cache:
             return self.dir_cache[cache_key]
         
-        url = f'https://api.github.com/repos/{owner}/{repo}/contents/{path}'
-        response_json = self._make_github_request(url)
+        url: str = f'https://api.github.com/repos/{owner}/{repo}/contents/{path}'
+        response_json: dict[str, Any] | None = self._make_github_request(url)
         
         if not response_json:
             raise ValueError(f"Failed to list contents for {path}")
         
-        files = []
+        files: list[str] = []
         notebooks = []
-        rst_files = []
+        rst_files: list[str] = []
         for item in response_json:
             # Skip test files and directories if exclude_tests is True
             if exclude_tests and (
@@ -416,7 +416,7 @@ class GitModuleHelpDB:
             # Create metadata point with README
             metadata_point = models.PointStruct(
                 id=0,
-                vector=[0.0] * self.encoder.get_sentence_embedding_dimension(),
+                vector=[0.0] * (self.encoder.get_sentence_embedding_dimension() or 1),
                 payload={
                     "type": "metadata",
                     "readme_content": readme_content if readme_content else "No README found",
@@ -465,11 +465,11 @@ class GitModuleHelpDB:
         """
 
         self.module_name = module_name or repo_url.split('/')[-1]
-        repo_name = repo_url.split('/')[-1]
+        repo_name: str = repo_url.split('/')[-1]
 
         # Check if collection exists
         collections = self.client.get_collections()
-        collection_names = [collection.name for collection in collections.collections]
+        collection_names: list[str] = [collection.name for collection in collections.collections]
         
         if repo_name in collection_names:
             raise ValueError(f"Collection '{repo_name}' already exists.")
@@ -478,7 +478,7 @@ class GitModuleHelpDB:
 
         # Analyze the repository
         print(f"Analyzing repository: {repo_url}")
-        results = self.analyze_repository(
+        results: list[dict[str, Any]] = self.analyze_repository(
             repo_url, 
             include_notebooks=include_notebooks, 
             include_rst=include_rst,
