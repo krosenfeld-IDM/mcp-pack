@@ -11,7 +11,7 @@ docker run -p 6333:6333 -p 6334:6334 \
 and create the database
 
 ```bash
-python -m mcp_pack.create_db https://github.com/sciris/sciris --include-notebooks --verbose
+python -m mcp_pack.create_db https://github.com/sciris/sciris --include-notebooks --include-rst --verbose --exclude-tests
 ```
 
 and add to `mcp.json` (or equivalent) after correcting the full path:
@@ -21,7 +21,7 @@ and add to `mcp.json` (or equivalent) after correcting the full path:
         "command": "uv",
         "args": [
             "--directory",
-            "/home/USER/mcp-pack/examples/sciris",
+            "PATHTO/mcp-pack/examples/sciris",
             "run",
             "server.py"
         ]
