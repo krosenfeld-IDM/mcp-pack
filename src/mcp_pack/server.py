@@ -1,5 +1,6 @@
 from mcp.server.fastmcp import FastMCP
 from qdrant_client import QdrantClient, models
+from qdrant_client.models import Record
 from sentence_transformers import SentenceTransformer
 from typing import Any, Dict, List, Optional
 import os
@@ -91,7 +92,7 @@ class ModuleQueryServer:
 
             client = self.get_qdrant_client()
         
-            result = client.retrieve(
+            result: list[Record] = client.retrieve(
                 collection_name=self.collection_name,
                 ids=[0]  # Use your reserved metadata point ID
             )
