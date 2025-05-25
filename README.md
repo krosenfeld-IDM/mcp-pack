@@ -93,6 +93,8 @@ OPENAI_API_KEY=your_openai_api_key
 - `--verbose`, `-v`: Verbose output
 - `--include-notebooks`: Include Jupyter notebooks
 - `--include-rst`: Include RST files
+- `--exclude-tests`: Exclude test files and directories
+- `--module-name`: Name of the module (defaults to repository name)
 - `--db-path`: Path to store the database
 - `--qdrant-url`: Qdrant server URL (default: http://localhost:6333)
 - `--github-token`: GitHub personal access token
@@ -102,6 +104,14 @@ OPENAI_API_KEY=your_openai_api_key
 
 - `--qdrant-url`: Qdrant server URL (default: http://localhost:6333)
 - `--collection`: Specific collection to delete (optional)
+
+### list_db
+
+- `--qdrant-url`: Qdrant server URL (default: http://localhost:6333)
+
+### Global Options
+
+- `--version`: Show version information
 
 ## Additional info
 
