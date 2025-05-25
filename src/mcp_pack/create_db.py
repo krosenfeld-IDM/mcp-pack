@@ -438,7 +438,7 @@ class GitModuleHelpDB:
             collection_name=name,
             points=[
                 models.PointStruct(
-                    id=idx, 
+                    id=idx+1, 
                     vector=self.encoder.encode(f'{doc["name"]}:\n{doc["docstring_header"]}').tolist(), 
                     payload=doc
                 )
