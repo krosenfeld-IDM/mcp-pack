@@ -17,6 +17,8 @@ from nbconvert import PythonExporter
 import openai
 import argparse
 
+from .db_utils import string_to_uuid
+
 def parse_repo_url(repo_url: str) -> Tuple[str, str]:
     """Parse a GitHub repository URL into owner and repo name."""
     parsed_url = urlparse(repo_url)  # noqa: F821
@@ -165,19 +167,7 @@ class GitModuleHelpDB:
         
         return decoded_content
     
-    def _get_readme_content(self, owner: str, repo: str) -> str | None:
-        """Get the content of README.md or README.rst from a GitHub repository."""
-        try:
-            # Try README.md first
-            return self._get_github_file_content(owner, repo, 'README.md')
-        except ValueError:
-            try:
-                # Try README.rst if README.md doesn't exist
-                return self._get_github_file_content(owner, repo, 'README.rst')
-            except ValueError:
-                return None
-    
-    def _get_github_files(self, owner: str, repo: str, path: str = '', load_ipynb: bool = False, load_rst: bool = False, exclude_tests: bool = False) -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]], List[Dict[str, Any]]]:
+    def _get_github_files(self, owner: str, repo: str, path: str = '', load_ipynb: bool = False, load_rst: bool = False, exclude_tests: bool = False) -> Dict[str, List[Dict[str, Any]] | None]:
         """Get all Python, Jupyter Notebook (.ipynb), and RST (.rst) files from a GitHub repository when their flags are True.
         
         Args:
@@ -189,7 +179,11 @@ class GitModuleHelpDB:
             exclude_tests: Whether to exclude test files and directories
             
         Returns:
-            Tuple of (Python files, Notebook files, RST files)
+            Dictionary with keys:
+            - 'py': List of Python files
+            - 'ipynb': List of Jupyter notebook files (if load_ipynb is True)
+            - 'rst': List of RST files (if load_rst is True)
+            - 'readme': README file content (if exists)
         """
         # Check cache first
         cache_key: str = f"{owner}/{repo}/{path}"
@@ -202,9 +196,13 @@ class GitModuleHelpDB:
         if not response_json:
             raise ValueError(f"Failed to list contents for {path}")
         
-        files: list[str] = []
-        notebooks = []
-        rst_files: list[str] = []
+        result: Dict[str, List[Dict[str, Any]] | None] = {
+            'py': [],
+            'ipynb': [],
+            'rst': [],
+            'readme': []
+        }
+        
         for item in response_json:
             # Skip test files and directories if exclude_tests is True
             if exclude_tests and (
@@ -220,26 +218,30 @@ class GitModuleHelpDB:
                 continue
                 
             if item['type'] == 'file' and item['name'].endswith('.py'):
-                files.append(item)
+                result['py'].append(item)
             elif item['type'] == 'file' and item['name'].endswith('.ipynb') and load_ipynb:
-                notebooks.append(item)
+                result['ipynb'].append(item)
             elif item['type'] == 'file' and item['name'].endswith('.rst') and load_rst:
-                rst_files.append(item)
+                result['rst'].append(item)
+            elif item['type'] == 'file' and item['name'].lower() in ['readme.md', 'readme.rst']:
+                result['readme'].append(item)
             elif item['type'] == 'dir':
-                files_, notebooks_, rst_files_ = self._get_github_files(
+                subdir_result = self._get_github_files(
                     owner, repo, item['path'], 
                     load_ipynb=load_ipynb, 
                     load_rst=load_rst,
                     exclude_tests=exclude_tests
                 )
-                files.extend(files_)
-                notebooks.extend(notebooks_)
-                rst_files.extend(rst_files_)
+                result['py'].extend(subdir_result['py'])
+                result['ipynb'].extend(subdir_result['ipynb'])
+                result['rst'].extend(subdir_result['rst'])
+                # if subdir_result['readme'] is not None:
+                # result['readme'].extend(subdir_result['readme'])
         
         # Cache the result
-        self.dir_cache[cache_key] = (files, notebooks, rst_files)
+        self.dir_cache[cache_key] = result
         
-        return files, notebooks, rst_files
+        return result
     
     def analyze_python_file(self, owner: str, repo: str, file_path: str) -> List[Dict[str, Any]]:
         """Analyze a Python file from GitHub and extract function and class information."""
@@ -263,7 +265,7 @@ class GitModuleHelpDB:
         
         return results
     
-    def analyze_repository(self, repo_url: str, include_notebooks: bool = False, include_rst: bool = False, exclude_tests: bool = False) -> List[Dict[str, Any]]:
+    def analyze_repository(self, repo_url: str, include_notebooks: bool = False, include_rst: bool = False, exclude_tests: bool = False) -> dict[str, Any]:
         """Analyze all .py, .ipynb, and .rst files in a GitHub repository when their flags are True.
         
         Args:
@@ -279,8 +281,8 @@ class GitModuleHelpDB:
         # Parse the repository URL
         owner, repo = parse_repo_url(repo_url)
         
-        # Get all Python files
-        files, notebooks, rst_files = self._get_github_files(
+        # Get all files
+        files = self._get_github_files(
             owner, repo, 
             load_ipynb=include_notebooks, 
             load_rst=include_rst,
@@ -288,7 +290,8 @@ class GitModuleHelpDB:
         )
         all_results = []
         
-        for file in files:
+        # Process Python files
+        for file in files['py']:
             if file['name'] != '__init__.py':  # Skip __init__.py files
                 try:
                     results = self.analyze_python_file(owner, repo, file['path'])
@@ -298,16 +301,47 @@ class GitModuleHelpDB:
                     print(f"Error processing {file['path']}: {str(e)}")
         
         # Process notebooks
-        if notebooks:
-            notebook_docs = self._process_notebooks(repo_url, notebooks)
+        if files['ipynb']:
+            notebook_docs: list = self._process_notebooks(repo_url, files['ipynb'])
             all_results.extend(notebook_docs)
 
         # Process rst files
-        if rst_files:
-            rst_docs = self._process_rst(repo_url, rst_files)
+        if files['rst']:
+            rst_docs: list[dict[str, Any]] = self._process_rst(repo_url, files['rst'])
             all_results.extend(rst_docs)
 
-        return all_results
+        # Process readme files
+        if files['readme']:
+            readme_docs: list[dict[str, Any]] = self._process_readme(repo_url, files['readme'])
+        else:
+            readme_docs = []
+
+        return {'results': all_results, 'readme_docs': readme_docs}
+    
+    def _process_readme(self, repo_url: str, readme_files: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Process README files in the repository."""
+
+        # Parse the repository URL
+        parsed_url = urlparse(repo_url)
+        path_parts: list[str] = parsed_url.path.strip('/').split('/')
+        owner, repo = path_parts[0], path_parts[1]
+
+        docs = []
+        for readme in readme_files:
+            if readme['name'].endswith('.md') or readme['name'].endswith('.rst'):
+                try:
+                    content = self._get_github_file_content(owner, repo, readme['path'])
+                    doc = {
+                        "name": readme['name'],
+                        "type": "readme",
+                        "file": readme['path'],
+                        "repo": f"{owner}/{repo}",
+                        "readme_content": content,
+                    }
+                    docs.append(doc)
+                except Exception as e:
+                    print(f"Error processing readme file {readme['name']}: {e}")
+        return docs
     
     def _summarize_document(self, py_code: str, fname: str) -> str:
         """Summarize the notebook using OpenAI chat.completions."""
@@ -320,13 +354,13 @@ class GitModuleHelpDB:
         try:
             client = openai.Client()
             response = client.chat.completions.create(
-                model=self.model,
+                model= self.model,
                 messages=[{"role": "system", "content": (f"You are a helpful assistant tasked to summarize a document."
                                                          f"Focus on the main functionality and what a user will learn about the repository and associated package: '{self.module_name}'."
                                                          f"Make sure to identify what functions, classes, and capabilities are featured in the document."
                                                         )},
                           {"role": "user", "content": prompt}],
-                max_tokens=5_000,
+                max_tokens=10_000,
                 temperature=0.7,
             )
             return response.choices[0].message.content.strip()
@@ -393,7 +427,7 @@ class GitModuleHelpDB:
                     print(f"Error processing rst file {rst['name']}: {e}")
         return docs
     
-    def create_database(self, name: str, docs: List[Dict[str, Any]]):
+    def create_database(self, name: str, results: dict[str, Any]):
         """Create a new database collection and upload documentation."""
 
         # Create a collection
@@ -405,17 +439,23 @@ class GitModuleHelpDB:
             ),
         )
 
-        # Get repository info from the first doc
-        if docs:
+        docs = results['results']
+        readme_docs = results['readme_docs']
+
+        if readme_docs:
+            # Get repository info from the first doc
             repo_parts = docs[0]['repo'].split('/')
             owner, repo = repo_parts[0], repo_parts[1]
             
-            # Get README content
-            readme_content: str | None = self._get_readme_content(owner, repo)
+            # Get README content from the files dictionary
+            readme_content = None
+            files = self._get_github_files(owner, repo)
+            if files['readme']:
+                readme_content = self._get_github_file_content(owner, repo, files['readme'][0]['path'])
             
             # Create metadata point with README
             metadata_point = models.PointStruct(
-                id=0,
+                id=string_to_uuid("readme"),
                 vector=[0.0] * (self.encoder.get_sentence_embedding_dimension() or 1),
                 payload={
                     "type": "metadata",
@@ -433,19 +473,20 @@ class GitModuleHelpDB:
                 points=[metadata_point]
             )
 
-        # Upload the docs
-        self.client.upload_points(
-            collection_name=name,
-            points=[
-                models.PointStruct(
-                    id=idx+1, 
-                    vector=self.encoder.encode(f'{doc["name"]}:\n{doc["docstring_header"]}').tolist(), 
-                    payload=doc
-                )
-                for idx, doc in enumerate(docs)
-                if doc["docstring_header"]  # Skip if docstring_header is empty
-            ],
-        )
+        if docs:
+            # Upload the docs
+            self.client.upload_points(
+                collection_name=name,
+                points=[
+                    models.PointStruct(
+                        id=idx, 
+                        vector=self.encoder.encode(f'{doc["name"]}:\n{doc["docstring_header"]}').tolist(), 
+                        payload=doc
+                    )
+                    for idx, doc in enumerate(docs)
+                    if doc["docstring_header"]  # Skip if docstring_header is empty
+                ],
+            )
         return self.client.get_collections()
     
     def process_repository(self, repo_url: str, module_name: str | None = None, output_dir: str | None = None, verbose: bool = False, include_notebooks: bool = False, include_rst: bool = False, exclude_tests: bool = False) -> List[Dict[str, Any]]:
@@ -472,19 +513,19 @@ class GitModuleHelpDB:
         collection_names: list[str] = [collection.name for collection in collections.collections]
         
         if repo_name in collection_names:
-            raise ValueError(f"Collection '{repo_name}' already exists.")
-            # print(f"Collection '{repo_name}' already exists. Deleting it first...")
-            # self.client.delete_collection(repo_name)
+            # raise ValueError(f"Collection '{repo_name}' already exists.")
+            print(f"Collection '{repo_name}' already exists. Deleting it first...")
+            self.client.delete_collection(repo_name)
 
         # Analyze the repository
         print(f"Analyzing repository: {repo_url}")
-        results: list[dict[str, Any]] = self.analyze_repository(
+        results: dict[str, Any] = self.analyze_repository(
             repo_url, 
             include_notebooks=include_notebooks, 
             include_rst=include_rst,
             exclude_tests=exclude_tests
         )
-        print(f"Found {len(results)} documented items")
+        print(f"Found {len(results['results'])} documented items")
         
         # Save results to a JSONL file if output directory is specified
         if output_dir:
