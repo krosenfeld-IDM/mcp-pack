@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 import os
 import argparse
 import importlib
+from .db_utils import string_to_uuid
 
 search_docstring_desc_template = """
             Retrieves relevant docstrings and source code from {module_name} module functions or classes based on a search query.
@@ -125,7 +126,7 @@ class ModuleQueryServer:
         
             result: list[Record] = client.retrieve(
                 collection_name=self.collection_name,
-                ids=[0]  # Use your reserved metadata point ID
+                ids=[string_to_uuid("readme")]  
             )
 
             return result[0].payload["readme_content"]
