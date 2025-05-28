@@ -5,6 +5,7 @@ from sentence_transformers import SentenceTransformer
 from typing import Any, Dict, List, Optional
 import os
 import argparse
+import importlib
 
 search_docstring_desc_template = """
             Retrieves relevant docstrings and source code from {module_name} module functions or classes based on a search query.
@@ -44,6 +45,36 @@ search_docs_desc_template = """
             """
 
 search_doc_fn_template = """search_{module_name}_docs"""
+
+get_module_docstring_template = """
+            Returns the docstring of a given Python function or class from a specified module.
+            
+            Args:
+                module_name (str): The name of the Python module.
+                obj_name (str): The name of the function or class within the module.
+            
+            Returns:
+                str: The docstring of the object, or None if no docstring is present.
+            
+            Example:
+                >>> get_docstring("math", "sqrt")
+                'Return the square root of x.'
+            """
+
+get_module_docstring_fn_template = """get_{module_name}_docstring"""
+
+get_module_functions_template = """
+            Returns a list of all function names in the {module_name} module.            
+            
+            Returns:
+                list: A list of function names in the module, or an error message if the module cannot be imported.
+            
+            Example:
+                >>> get_functions("math")
+                ['acos', 'acosh', 'asin', ...]
+            """
+
+get_module_functions_fn_template = """get_{module_name}_functions"""
 
 class ModuleQueryServer:
     """
@@ -161,7 +192,27 @@ class ModuleQueryServer:
             }
             
             return result
-    
+
+        @self.mcp.tool(name = get_module_docstring_fn_template.format(module_name = self.module_name),
+                       description = get_module_docstring_template.format(module_name = self.module_name))
+        async def get_module_docstring(obj_name:str) -> str:
+            try:
+                module = importlib.import_module(self.module_name)
+                obj = getattr(module, obj_name)
+                return obj.__doc__
+            except (ModuleNotFoundError, AttributeError) as e:
+                return f"Error: {e}"
+
+        @self.mcp.tool(name = get_module_functions_fn_template.format(module_name = self.module_name),
+                       description = get_module_functions_template.format(module_name = self.module_name))
+        async def get_module_functions() -> list:
+            try:
+                module = importlib.import_module(self.module_name)
+                functions: list[str] = [name for name, obj in vars(module).items() if callable(obj)]
+                return functions
+            except ModuleNotFoundError as e:
+                return [f"Error: {e}"]
+                    
     def run(self, transport: str = "stdio", port: int = 8000):
         """Start the MCP server with the specified transport."""
         if transport == "sse":
