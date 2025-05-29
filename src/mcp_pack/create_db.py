@@ -539,7 +539,7 @@ class GitModuleHelpDB:
         
         # Print results if verbose
         if verbose:
-            for item in results:
+            for item in results['results']:
                 print(f"\n{'='*80}")
                 print(f"Name: {item['name']}")
                 print(f"Type: {item['type']}")
