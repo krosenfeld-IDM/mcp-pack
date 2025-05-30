@@ -106,7 +106,7 @@ class ModuleQueryServer:
         self.collection_name = collection_name or module_name
         
         # Initialize MCP server
-        self.mcp = FastMCP(self.module_name + '_pack')
+        self.mcp = FastMCP(f'{self.module_name}_pack')
         
         # Initialize encoder
         self.encoder = SentenceTransformer(encoder_model)
