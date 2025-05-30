@@ -51,7 +51,7 @@ class GitModuleHelpDB:
         self.encoder = SentenceTransformer("all-MiniLM-L6-v2")
         self.client = qdrant_client.QdrantClient(qdrant_url)
         self.github_token = github_token
-        self.headers = {'Authorization': f'Bearer  {github_token}'} if github_token else {}
+        self.headers = {'Authorization': f'Bearer {github_token}'} if github_token else {}
         self.openai_api_key = openai_api_key or os.getenv("OPENAI_API_KEY")
         self.module_name: str | None = None
         self.model: str | None = model
