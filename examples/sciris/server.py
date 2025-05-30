@@ -8,7 +8,7 @@ source code, and usage examples through semantic search.
 
 Add to mcp.json (updating with correct absolute paths)
 ```
-    "sciris_helper": {
+    "sciris_pack": {
         "command": "${HOME}/.local/bin/uv",
         "args": [
             "--directory",
@@ -27,7 +27,6 @@ from mcp_pack.server import ModuleQueryServer
 # Create server instance for sciris
 sciris_server = ModuleQueryServer(
     module_name="sciris",
-    server_name="sciris_helper",
     qdrant_url=os.environ.get("QDRANT_URL", "http://localhost:6333"),
     collection_name="sciris"
 )

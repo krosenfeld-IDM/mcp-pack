@@ -3,9 +3,19 @@
 A tool for creating and managing documentation databases from GitHub repositories.
 
 ## Quickstart to create a database
+Start the Qdrant server:
+```bash
+docker compose up
+```
+
 With a Qdrant server running:
 ```bash
 uvx mcp_pack create_db https://github.com/user/repo
+```
+
+To start a server for querying the documentation:
+```bash
+mcp_pack create_server --module-name your_module_name
 ```
 
 see the `examples/` folder for how to setup the MCP server.
@@ -69,6 +79,25 @@ mcp_pack list_db --qdrant-url http://localhost:6333
 
 This will display all the collections currently stored in the Qdrant database.
 
+### Create and Run a Query Server
+
+To create and run a server for querying module documentation:
+
+```bash
+# Basic usage with default settings
+mcp_pack create_server --module-name your_module_name
+
+# With custom settings
+mcp_pack create_server --module-name your_module_name \
+    --transport sse \
+    --port 8080 \
+    --qdrant-url http://your-qdrant-server:6333 \
+    --encoder-model all-MiniLM-L6-v2 \
+    --collection-name custom_collection
+```
+
+This will start a server that provides semantic search capabilities over your module's documentation.
+
 ## Environment Variables
 
 You can set environment variables instead of passing command-line arguments:
@@ -88,6 +117,8 @@ OPENAI_API_KEY=your_openai_api_key
 - `--verbose`, `-v`: Verbose output
 - `--include-notebooks`: Include Jupyter notebooks
 - `--include-rst`: Include RST files
+- `--exclude-tests`: Exclude test files and directories
+- `--module-name`: Name of the module (defaults to repository name)
 - `--db-path`: Path to store the database
 - `--qdrant-url`: Qdrant server URL (default: http://localhost:6333)
 - `--github-token`: GitHub personal access token
@@ -97,6 +128,23 @@ OPENAI_API_KEY=your_openai_api_key
 
 - `--qdrant-url`: Qdrant server URL (default: http://localhost:6333)
 - `--collection`: Specific collection to delete (optional)
+
+### list_db
+
+- `--qdrant-url`: Qdrant server URL (default: http://localhost:6333)
+
+### create_server
+
+- `--module-name`: Name of the module to query (required)
+- `--qdrant-url`: Qdrant server URL (default: http://localhost:6333)
+- `--encoder-model`: SentenceTransformer model to use (default: all-MiniLM-L6-v2)
+- `--collection-name`: Name of the Qdrant collection (defaults to module_name)
+- `--transport`: Transport method for the MCP server (default: stdio, choices: stdio, sse)
+- `--port`: Port number for the MCP server (default: 8000)
+
+### Global Options
+
+- `--version`: Show version information
 
 ## Additional info
 
@@ -134,3 +182,7 @@ options:
   --collection COLLECTION
                         Specific collection to delete (optional, if not provided, all collections will be deleted)
 ```
+
+## Resources
+- [Qdrant quickstart](https://qdrant.tech/documentation/quickstart/)
+- [Qdrant API](https://api.qdrant.tech/v-1-14-x/api-reference)
