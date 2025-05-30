@@ -217,14 +217,15 @@ class GitModuleHelpDB:
             ):
                 continue
                 
-            if item['type'] == 'file' and item['name'].endswith('.py'):
-                result['py'].append(item)
-            elif item['type'] == 'file' and item['name'].endswith('.ipynb') and load_ipynb:
-                result['ipynb'].append(item)
-            elif item['type'] == 'file' and item['name'].endswith('.rst') and load_rst:
-                result['rst'].append(item)
-            elif item['type'] == 'file' and item['name'].lower() in ['readme.md', 'readme.rst']:
-                result['readme'].append(item)
+            if item['type'] == 'file' :
+                if  item['name'].endswith('.py'):
+                    result['py'].append(item)
+                elif  item['name'].endswith('.ipynb') and load_ipynb:
+                    result['ipynb'].append(item)
+                elif  item['name'].endswith('.rst') and load_rst:
+                    result['rst'].append(item)
+                elif  item['name'].lower() in ['readme.md', 'readme.rst']:
+                    result['readme'].append(item)
             elif item['type'] == 'dir':
                 subdir_result = self._get_github_files(
                     owner, repo, item['path'], 
@@ -235,6 +236,8 @@ class GitModuleHelpDB:
                 result['py'].extend(subdir_result['py'])
                 result['ipynb'].extend(subdir_result['ipynb'])
                 result['rst'].extend(subdir_result['rst'])
+            else:
+                raise ValueError(f"Unexpected item type: {item['type']}")
                 # if subdir_result['readme'] is not None:
                 # result['readme'].extend(subdir_result['readme'])
         
