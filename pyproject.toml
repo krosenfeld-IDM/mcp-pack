@@ -3,6 +3,8 @@ name = "mcp-pack"
 version = "0.3.0"
 authors = [
   { name="Katherine Rosenfeld"},
+  { name="Meikang Wu"},
+  { name="Cliff Kerr"}
 ]
 description = "Package for accessing package artifacts via MCP"
 readme = "README.md"
