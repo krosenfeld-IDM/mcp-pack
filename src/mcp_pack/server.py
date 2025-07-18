@@ -9,7 +9,7 @@ import importlib
 from .db_utils import string_to_uuid
 
 search_docstring_desc_template = """
-            Retrieves relevant docstrings and source code from {module_name} module functions or classes based on a search query.
+            Retrieves relevant docstrings from {module_name} module functions or classes based on a search query.
             
             This tool performs a semantic search against indexed {module_name} documentation to find
             the most relevant function or class docstrings that match the provided query.
@@ -18,16 +18,44 @@ search_docstring_desc_template = """
                 query (str): A search query describing the {module_name} functionality you're looking for.
                     Examples: "How to use basic functions", "Core classes", "Data processing"
                 limit (int, optional): Maximum number of relevant docstrings to return. Defaults to 3.
-                return_code (bool, optional): If True, also return the source code of the functions/classes. Defaults to False.
             
             Returns:
                 List[str]: A list of formatted docstrings, each containing:
                     - The name and type (function/class) of the {module_name} object
                     - The complete docstring with parameter descriptions and usage notes
-                    - The source code (if return_code is True)
     """
 
 search_docstring_fn_template = """search_{module_name}_docstring"""
+
+get_source_code_desc_template = """
+            Retrieves the source code for a specific function or class from the {module_name} module.
+            
+            This tool searches for the exact function or class name and returns its source code.
+            
+            Args:
+                name (str): The exact name of the function or class you want to retrieve source code for.
+                    Examples: "MyClass", "my_function", "process_data"
+            
+            Returns:
+                str: The source code of the specified function or class, or an error message if not found.
+    """
+
+get_source_code_fn_template = """get_{module_name}_source_code"""
+
+get_docstring_desc_template = """
+            Retrieves the docstring for a specific function or class from the {module_name} module.
+            
+            This tool searches for the exact function or class name and returns its docstring.
+            
+            Args:
+                name (str): The exact name of the function or class you want to retrieve the docstring for.
+                    Examples: "MyClass", "my_function", "process_data"
+            
+            Returns:
+                str: The docstring of the specified function or class, or an error message if not found.
+    """
+
+get_docstring_fn_template = """get_{module_name}_docstring"""
 
 search_docs_desc_template = """
             Given a topic or query, searches documentation of {module_name} for relevant information like example and usage.
@@ -134,7 +162,7 @@ class ModuleQueryServer:
 
         @self.mcp.tool(name = search_docstring_fn_template.format(module_name=self.module_name), 
                     description = search_docstring_desc_template.format(module_name = self.module_name))
-        async def search_module_docstring(query: str, limit: int = 3, return_code:bool = False) -> List[str]:
+        async def search_module_docstring(query: str, limit: int = 3) -> List[str]:
 
             client = self.get_qdrant_client()
             
@@ -153,11 +181,67 @@ class ModuleQueryServer:
                        f'NAME: {hit.payload["name"]}\n' # type: ignore
                        f'TYPE: {hit.payload["type"]}\n' # type: ignore
                        f'DOCSTRING:\n {hit.payload["docstring"]}\n') # type: ignore
-                if return_code:
-                    msg += f'SOURCECODE:\n {hit.payload["source_code"]}\n' # type: ignore
                 result.append(msg)
                 
             return result
+        
+        @self.mcp.tool(name = get_source_code_fn_template.format(module_name = self.module_name), 
+                       description = get_source_code_desc_template.format(module_name = self.module_name))
+        async def get_module_source_code(name: str) -> str:
+            client = self.get_qdrant_client()
+            
+            # Search for exact match by name
+            hits = client.query_points(
+                collection_name=self.collection_name,
+                query=self.encoder.encode(name).tolist(),
+                query_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="name",
+                            match=models.MatchValue(value=name)
+                        )
+                    ]
+                ),
+                with_payload=True,
+                limit=1
+            ).points
+            
+            if not hits:
+                return f"No function or class named '{name}' found in {self.module_name} module."
+            
+            hit = hits[0]
+            return (f'NAME: {hit.payload["name"]}\n'
+                    f'TYPE: {hit.payload["type"]}\n'
+                    f'SOURCE CODE:\n{hit.payload["source_code"]}')
+        
+        @self.mcp.tool(name = get_docstring_fn_template.format(module_name = self.module_name), 
+                       description = get_docstring_desc_template.format(module_name = self.module_name))
+        async def get_module_docstring(name: str) -> str:
+            client = self.get_qdrant_client()
+            
+            # Search for exact match by name
+            hits = client.query_points(
+                collection_name=self.collection_name,
+                query=self.encoder.encode(name).tolist(),
+                query_filter=models.Filter(
+                    must=[
+                        models.FieldCondition(
+                            key="name",
+                            match=models.MatchValue(value=name)
+                        )
+                    ]
+                ),
+                with_payload=True,
+                limit=1
+            ).points
+            
+            if not hits:
+                return f"No function or class named '{name}' found in {self.module_name} module."
+            
+            hit = hits[0]
+            return (f'NAME: {hit.payload["name"]}\n'
+                    f'TYPE: {hit.payload["type"]}\n'
+                    f'DOCSTRING:\n{hit.payload["docstring"]}')
         
         @self.mcp.tool(name = search_doc_fn_template.format(module_name = self.module_name), 
                        description = search_docs_desc_template.format(module_name = self.module_name))
