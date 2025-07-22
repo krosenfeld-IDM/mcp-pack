@@ -9,9 +9,9 @@ from typing import Any, Dict, List, Optional
 import os
 import argparse
 import importlib
-import httpx
-import datetime
+import uuid
 from .db_utils import string_to_uuid
+from dotenv import load_dotenv
 
 search_docstring_desc_template = """
             Retrieves relevant docstrings from {module_name} module functions or classes based on a search query.
@@ -114,24 +114,28 @@ class SimpleTokenVerifier(TokenVerifier):
     """Simple token verifier for demonstration."""
 
     async def verify_token(self, token: str) -> AccessToken | None:
-            # Validate GitHub OAuth token by calling the user API
-            headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
-            async with httpx.AsyncClient() as client:
-                resp = await client.get("https://api.github.com/user", headers=headers)
-                if resp.status_code == 200:
-                    user = resp.json()
-                    # Return a simple AccessToken object
-                    auth_token = AccessToken(
-                        sub=user.get("login", "github_user"),
-                        token=token,
-                        client_id="Ov23liJTVfc1OhRoZ35G",
-                        scopes=["user"],
-                        claims=user,
-                    )
-                    return auth_token
-                else:
-                    print(f"Auth failed: status={resp.status_code}, response={resp.text}")
-                return None
+            load_dotenv()
+            passcode = os.getenv("passcode")
+            random_token = str(uuid.uuid4())
+            client_id = "mcp_pack"
+
+            # If no passcode is set, allow public access
+            if not passcode:
+                return AccessToken(sub="anonymous",  
+                                   scopes=["user"], 
+                                   claims={"auth": "none"},
+                                   token=random_token,
+                                   client_id=client_id)
+            # If token matches passcode, allow access
+            if token == passcode:
+                return AccessToken(sub="basic_user",
+                                     scopes=["user"],
+                                     claims={"auth": "basic"},
+                                     token=random_token,
+                                     client_id=client_id)
+            # Otherwise, deny access
+            return None
+        
 
 class ModuleQueryServer:
     """
