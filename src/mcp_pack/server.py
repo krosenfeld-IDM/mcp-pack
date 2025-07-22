@@ -1,3 +1,6 @@
+from pydantic import AnyHttpUrl
+from mcp.server.auth.provider import AccessToken, TokenVerifier
+from mcp.server.auth.settings import AuthSettings
 from mcp.server.fastmcp import FastMCP
 from qdrant_client import QdrantClient, models
 from qdrant_client.models import Record
@@ -6,6 +9,8 @@ from typing import Any, Dict, List, Optional
 import os
 import argparse
 import importlib
+import httpx
+import datetime
 from .db_utils import string_to_uuid
 
 search_docstring_desc_template = """
@@ -105,6 +110,29 @@ get_module_functions_template = """
 
 get_module_functions_fn_template = """get_{module_name}_functions"""
 
+class SimpleTokenVerifier(TokenVerifier):
+    """Simple token verifier for demonstration."""
+
+    async def verify_token(self, token: str) -> AccessToken | None:
+            # Validate GitHub OAuth token by calling the user API
+            headers = {"Authorization": f"Bearer {token}", "Accept": "application/vnd.github+json"}
+            async with httpx.AsyncClient() as client:
+                resp = await client.get("https://api.github.com/user", headers=headers)
+                if resp.status_code == 200:
+                    user = resp.json()
+                    # Return a simple AccessToken object
+                    auth_token = AccessToken(
+                        sub=user.get("login", "github_user"),
+                        token=token,
+                        client_id="Ov23liJTVfc1OhRoZ35G",
+                        scopes=["user"],
+                        claims=user,
+                    )
+                    return auth_token
+                else:
+                    print(f"Auth failed: status={resp.status_code}, response={resp.text}")
+                return None
+
 class ModuleQueryServer:
     """
     A configurable server for providing AI agents with module documentation and examples.
@@ -118,7 +146,9 @@ class ModuleQueryServer:
         module_name: str,
         qdrant_url: str = "http://localhost:6333",
         encoder_model: str = "all-MiniLM-L6-v2",
-        collection_name: Optional[str] = None
+        collection_name: Optional[str] = None,
+        transport: Optional[str] = None,
+        port: Optional[int] = None
     ):
         """
         Initialize the ModuleQueryServer for a specific Python module.
@@ -132,10 +162,23 @@ class ModuleQueryServer:
         self.module_name = module_name
         self.qdrant_url = qdrant_url
         self.collection_name = collection_name or module_name
+        self.transport = transport if transport =="stdio" else "streamable-http"
+        self.port = port
         
         # Initialize MCP server
-        self.mcp = FastMCP(f'{self.module_name}_pack')
-        
+        if self.transport == "streamable-http":
+            self.mcp = FastMCP(f'{self.module_name}_pack',
+                               # Use token verifier for authentication
+                               token_verifier = SimpleTokenVerifier(),
+                               auth = AuthSettings(
+                                   issuer_url=AnyHttpUrl("https://api.github.com/user"),  # Authorization Server URL
+                                   resource_server_url=AnyHttpUrl(f"http://localhost:{self.port}"),  # This server's URL
+                                   required_scopes=["user"],
+                               )
+            )
+        else:
+            self.mcp = FastMCP(f'{self.module_name}_pack')
+
         # Initialize encoder
         self.encoder = SentenceTransformer(encoder_model)
         
@@ -298,11 +341,12 @@ class ModuleQueryServer:
             except ModuleNotFoundError as e:
                 return [f"Error: {e}"]
                     
-    def run(self, transport: str = "stdio", port: int = 8000):
+    def run(self):
         """Start the MCP server with the specified transport."""
-        if transport == "sse":
-            self.mcp.settings.port = port
-        self.mcp.run(transport=transport) # type: ignore
+        if self.transport == "streamable-http":
+            self.mcp.settings.port = self.port
+            self.mcp.settings.host = "0.0.0.0"
+        self.mcp.run(transport=self.transport) # type: ignore
 
 # Example usage
 if __name__ == "__main__":
@@ -313,8 +357,8 @@ if __name__ == "__main__":
     args = parser.parse_args()
    
     # Create and start the server with the specified port
-    server = ModuleQueryServer(args.module_name)
+    server = ModuleQueryServer(module_name=args.module_name, transport=args.transport, port=args.port)
     server.register_tools()
 
     # Pass the transport and port arguments to the run method
-    server.run(transport=args.transport, port=args.port)
+    server.run()
